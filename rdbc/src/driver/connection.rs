@@ -13,5 +13,8 @@ pub trait Connection {
     fn begin(&mut self) -> Begin;
 
     /// Driver use this function to return connection status
-    fn is_valid(&mut self) -> bool;
+    fn is_valid(&self) -> bool;
+
+    /// Get connection id
+    fn id(&self) -> String;
 }

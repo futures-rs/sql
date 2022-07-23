@@ -3,7 +3,7 @@ use anyhow::*;
 
 pub type Connector = waker::WakableFuture<Result<Box<dyn super::Connection>>>;
 
-trait Driver {
+pub trait Driver {
     /// Open returns new connection to the database
-    fn open(name: &str) -> Connector;
+    fn open(&mut self, name: &str) -> Connector;
 }
