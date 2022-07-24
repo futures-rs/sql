@@ -16,5 +16,5 @@ pub trait Connection {
     fn is_valid(&self) -> bool;
 
     /// Get connection id
-    fn id(&self) -> String;
+    fn id(&self) -> &str;
 }

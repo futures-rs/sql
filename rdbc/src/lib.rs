@@ -174,7 +174,10 @@ impl Transaction {
 impl Drop for Transaction {
     fn drop(&mut self) {
         if let Some(conn) = self.conn.take() {
-            self.connection_pool.lock().unwrap().insert(conn.id(), conn);
+            self.connection_pool
+                .lock()
+                .unwrap()
+                .insert(conn.id().to_owned(), conn);
         }
     }
 }
@@ -220,7 +223,10 @@ impl Statement {
 impl Drop for Statement {
     fn drop(&mut self) {
         if let Some(conn) = self.conn.take() {
-            self.connection_pool.lock().unwrap().insert(conn.id(), conn);
+            self.connection_pool
+                .lock()
+                .unwrap()
+                .insert(conn.id().to_owned(), conn);
         }
     }
 }
