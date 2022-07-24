@@ -2,11 +2,13 @@ pub mod driver;
 mod waker;
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::{Arc, Mutex},
 };
 
 pub use waker::*;
+
+pub use driver::{ColumnMetaData, ExecuteResult, NamedValue, Value};
 
 pub struct DataSource {
     drivers: Arc<Mutex<HashMap<String, Box<dyn driver::Driver>>>>,
@@ -56,7 +58,7 @@ pub struct Database {
     name: String,
     url: String,
     drivers: Arc<Mutex<HashMap<String, Box<dyn driver::Driver>>>>,
-    connections: Arc<Mutex<HashMap<String, Box<dyn driver::Connection>>>>,
+    connection_pool: Arc<Mutex<HashMap<String, Box<dyn driver::Connection>>>>,
 }
 
 impl Database {
@@ -69,23 +71,13 @@ impl Database {
             name: name.to_owned(),
             url: url.to_owned(),
             drivers,
-            connections: Default::default(),
+            connection_pool: Default::default(),
         }
     }
 
     async fn select_one_connection(&mut self) -> Result<Box<dyn driver::Connection>> {
-        // let mut connection = self.select_one_connection();
-
-        // if connection.is_none() {
-        //     let mut drivers = self.drivers.lock().unwrap();
-
-        //     if let Some(driver) = drivers.get_mut(&self.name) {
-        //         connection = Some(driver.open(&self.url).await?);
-        //     }
-        // }
-
         let mut connection = {
-            let mut connections = self.connections.lock().unwrap();
+            let mut connections = self.connection_pool.lock().unwrap();
 
             let mut id: Option<String> = None;
 
@@ -113,9 +105,145 @@ impl Database {
         Ok(connection.unwrap())
     }
 
-    pub async fn prepare(&mut self, query: &str) -> Result<Box<dyn driver::Statement>> {
+    /// Prepare creates a prepared statement for later queries or executions.
+    pub async fn prepare(&mut self, query: &str) -> Result<Statement> {
         let mut connection = self.select_one_connection().await?;
 
-        connection.prepare(query).await
+        let statement = connection.prepare(query).await?;
+
+        Ok(Statement::new(
+            self.connection_pool.clone(),
+            Some(connection),
+            statement,
+        ))
+    }
+
+    /// Starts and returns a new transaction.
+    pub async fn begin(&mut self) -> Result<Transaction> {
+        let mut connection = self.select_one_connection().await?;
+
+        let tx = connection.begin().await?;
+
+        Ok(Transaction::new(
+            self.connection_pool.clone(),
+            Some(connection),
+            tx,
+        ))
+    }
+}
+
+/// The [`driver::Transaction`] wrapper
+pub struct Transaction {
+    inner: Box<dyn driver::Transaction>,
+    connection_pool: Arc<Mutex<HashMap<String, Box<dyn driver::Connection>>>>,
+    conn: Option<Box<dyn driver::Connection>>,
+}
+
+impl Transaction {
+    pub(crate) fn new(
+        connection_pool: Arc<Mutex<HashMap<String, Box<dyn driver::Connection>>>>,
+        conn: Option<Box<dyn driver::Connection>>,
+        inner: Box<dyn driver::Transaction>,
+    ) -> Self {
+        Self {
+            inner,
+            connection_pool,
+            conn,
+        }
+    }
+
+    pub async fn prepare(&mut self, query: &str) -> Result<Statement> {
+        let statement = self.inner.prepare(query).await?;
+
+        Ok(Statement::new(
+            self.connection_pool.clone(),
+            None,
+            statement,
+        ))
+    }
+
+    pub async fn commit(&mut self) -> Result<()> {
+        self.inner.commit().await
+    }
+
+    pub async fn rollback(&mut self) -> Result<()> {
+        self.inner.rollback().await
+    }
+}
+
+impl Drop for Transaction {
+    fn drop(&mut self) {
+        if let Some(conn) = self.conn.take() {
+            self.connection_pool.lock().unwrap().insert(conn.id(), conn);
+        }
+    }
+}
+
+/// The [`driver::Statement`] wrapper
+pub struct Statement {
+    conn: Option<Box<dyn driver::Connection>>,
+    statement: Box<dyn driver::Statement>,
+    connection_pool: Arc<Mutex<HashMap<String, Box<dyn driver::Connection>>>>,
+}
+
+impl Statement {
+    pub(crate) fn new(
+        connection_pool: Arc<Mutex<HashMap<String, Box<dyn driver::Connection>>>>,
+        conn: Option<Box<dyn driver::Connection>>,
+        statement: Box<dyn driver::Statement>,
+    ) -> Self {
+        Statement {
+            connection_pool,
+            conn,
+            statement,
+        }
+    }
+
+    pub fn num_input(&self) -> Option<u32> {
+        self.statement.num_input()
+    }
+
+    /// Executes a query that doesn't return rows, such
+    /// as an INSERT or UPDATE.
+    pub async fn execute(&mut self, args: Vec<NamedValue>) -> Result<ExecuteResult> {
+        self.statement.execute(args).await
+    }
+
+    /// executes a query that may return rows, such as a
+    /// SELECT.
+    pub async fn query(&mut self, args: Vec<NamedValue>) -> Result<Rows> {
+        let rows = self.statement.query(args).await?;
+        Ok(Rows::new(rows))
+    }
+}
+
+impl Drop for Statement {
+    fn drop(&mut self) {
+        if let Some(conn) = self.conn.take() {
+            self.connection_pool.lock().unwrap().insert(conn.id(), conn);
+        }
+    }
+}
+
+/// [`driver::Rows`] wrapper
+pub struct Rows {
+    inner: Box<dyn driver::Rows>,
+}
+
+impl Rows {
+    pub(crate) fn new(inner: Box<dyn driver::Rows>) -> Self {
+        Self { inner }
+    }
+
+    pub async fn colunms(&mut self) -> Result<Vec<ColumnMetaData>> {
+        self.inner.colunms().await
+    }
+
+    pub async fn next(&mut self) -> Result<bool> {
+        self.inner.next().await
+    }
+
+    pub async fn get(&mut self, index: u64) -> Result<Option<Value>> {
+        self.inner.get(index).await
     }
 }
