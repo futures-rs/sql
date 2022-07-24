@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "rdbc-rs"
+name = "rdbc"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,3 +16,7 @@ thiserror = "1.0.31"
 [dev-dependencies]
 dotenv = "0.15.0"
 pretty_env_logger = "0.4.0"
+
+[features]
+default = ["global-datasource"]
+global-datasource = []
