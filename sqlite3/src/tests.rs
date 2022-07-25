@@ -65,7 +65,7 @@ async fn test_stmt() {
 
     // let mut db = open("sqlite3", &path).unwrap();
 
-    let mut db = open("sqlite3", "file:memdb1?mode=memory&cache=shared").unwrap();
+    let mut db = open("sqlite3", "file:memdb_stmt?mode=memory&cache=shared").unwrap();
 
     let mut stmt = db
         .prepare("CREATE TABLE t(x INTEGER PRIMARY KEY ASC, y TEXT, z NUMERIC);")
@@ -157,7 +157,7 @@ async fn test_tx_commit_data() {
 
     // let mut db = open("sqlite3", &path).unwrap();
 
-    let mut db = open("sqlite3", "file:memdb1?mode=memory&cache=shared").unwrap();
+    let mut db = open("sqlite3", "file:memdb_commit?mode=memory&cache=shared").unwrap();
 
     {
         let mut tx = db.begin().await.unwrap();
@@ -301,7 +301,7 @@ async fn test_tx_rollback_data() {
 
     // let mut db = open("sqlite3", &path).unwrap();
 
-    let mut db = open("sqlite3", "file:memdb1?mode=memory&cache=shared").unwrap();
+    let mut db = open("sqlite3", "file:memdb_rollback?mode=memory&cache=shared").unwrap();
 
     {
         let mut tx = db.begin().await.unwrap();
