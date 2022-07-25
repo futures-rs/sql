@@ -7,6 +7,15 @@ use thiserror::Error;
 pub enum Sqlite3Error {
     #[error("Sqlite3 native error: code({0}) {1}")]
     NativeError(i32, String),
+
+    #[error("Sqlite3 step return unexpect rows")]
+    UnexpectRows,
+
+    #[error("Call next first or no more rows")]
+    NextDataError,
+
+    #[error("Sqlite3 get column data out of range {0}")]
+    OutOfRange(u64),
 }
 
 pub fn native_error(code: i32, message: String) -> anyhow::Error {
@@ -17,6 +26,12 @@ pub fn db_native_error(db: *mut sqlite3, code: c_int) -> anyhow::Error {
     let errmsg = unsafe { errmsg_to_string(sqlite3_errmsg(db)) };
 
     native_error(code, errmsg)
+}
+
+pub fn error_with_sql(db: *mut sqlite3, code: c_int, sql: &str) -> anyhow::Error {
+    let errmsg = unsafe { errmsg_to_string(sqlite3_errmsg(db)) };
+
+    native_error(code, format!("{}, with SQL {}", errmsg, sql))
 }
 
 unsafe fn errmsg_to_string(errmsg: *const c_char) -> String {

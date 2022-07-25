@@ -5,7 +5,7 @@ pub type Execute = waker::WakableFuture<Result<ExecuteResult>>;
 pub type Query = waker::WakableFuture<Result<Box<dyn Rows>>>;
 pub type Columns = waker::WakableFuture<Result<Vec<ColumnMetaData>>>;
 pub type RowsNext = waker::WakableFuture<Result<bool>>;
-pub type RowsGet = waker::WakableFuture<Result<Option<Value>>>;
+pub type RowsGet = waker::WakableFuture<Result<Value>>;
 
 pub trait Statement {
     /// Returns the number of placeholder parameters.
@@ -23,20 +23,18 @@ pub trait Statement {
 }
 
 pub struct NamedValue {
-    pub name: String,
-    pub ordinal: u32,
+    pub name: Option<String>,
+    pub ordinal: u64,
     pub value: Value,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Value {
-    I8(i8),
-    I16(i16),
-    I32(i32),
     I64(i64),
-    F32(f32),
     F64(f64),
     String(String),
     Bytes(Vec<u8>),
+    Null,
 }
 
 pub struct ExecuteResult {
@@ -49,22 +47,22 @@ pub trait Rows {
 
     fn next(&mut self) -> RowsNext;
 
-    fn get(&mut self, index: u64) -> RowsGet;
+    fn get(&mut self, index: u64, column_type: ColumnType) -> RowsGet;
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct ColumnMetaData {
     pub column_index: u64,
     pub column_name: String,
-    pub column_type: ColumnType,
+    pub column_decltype: String,
+    pub column_decltype_len: Option<u64>,
 }
 
+#[derive(Debug)]
 pub enum ColumnType {
-    I8,
-    I16,
-    I32,
     I64,
-    F32,
     F64,
     String,
     Bytes,
+    Null,
 }

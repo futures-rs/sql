@@ -209,13 +209,20 @@ impl Statement {
     /// Executes a query that doesn't return rows, such
     /// as an INSERT or UPDATE.
     pub async fn execute(&mut self, args: Vec<NamedValue>) -> Result<ExecuteResult> {
-        self.statement.execute(args).await
+        let fut = self.statement.execute(args);
+
+        // drop(self);
+
+        fut.await
     }
 
     /// executes a query that may return rows, such as a
     /// SELECT.
     pub async fn query(&mut self, args: Vec<NamedValue>) -> Result<Rows> {
-        let rows = self.statement.query(args).await?;
+        let fut = self.statement.query(args);
+
+        let rows = fut.await?;
+
         Ok(Rows::new(rows))
     }
 }
@@ -249,8 +256,8 @@ impl Rows {
         self.inner.next().await
     }
 
-    pub async fn get(&mut self, index: u64) -> Result<Option<Value>> {
-        self.inner.get(index).await
+    pub async fn get(&mut self, index: u64, column_type: driver::ColumnType) -> Result<Value> {
+        self.inner.get(index, column_type).await
     }
 }
 
