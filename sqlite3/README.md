@@ -1,11 +1,11 @@
 # RDBC Official Sqlite3 Driver 
 
-## async-sqlite3
+## Feature async-sqlite3
 
 This [**optional feature**](https://doc.rust-lang.org/cargo/reference/features.html) is created for architectural validation (RDBC async task system), please don't use in production environment.
 
 
-## benchmark
+## Benchmark
 
 This crate use [criterion.rs](https://bheisler.github.io/criterion.rs) for benchmarking.
 
@@ -15,7 +15,7 @@ To run benchmark, use the following command:
 cargo bench
 ```
 
-## usage
+## Usage
 
 ```rust
 use rdbc::*;
