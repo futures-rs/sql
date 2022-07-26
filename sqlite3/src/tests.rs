@@ -5,6 +5,9 @@ use std::{
 
 use super::*;
 
+use rdbc::*;
+
+#[allow(dead_code)]
 fn create_test_dir() -> PathBuf {
     let path: PathBuf = ".test".into();
 
@@ -15,28 +18,6 @@ fn create_test_dir() -> PathBuf {
     create_dir_all(path.to_owned()).unwrap();
 
     path
-}
-
-#[async_std::test]
-async fn test_file_open() {
-    _ = pretty_env_logger::try_init();
-
-    let path = create_test_dir().join("test.db");
-
-    let mut driver = Sqlite3Driver {};
-
-    let path = format!("file:{}", path.to_string_lossy());
-
-    driver.open(&path).await.unwrap();
-}
-
-#[async_std::test]
-async fn test_memory_open() {
-    _ = pretty_env_logger::try_init();
-
-    let mut driver = Sqlite3Driver {};
-
-    driver.open(":memory:").await.unwrap();
 }
 
 #[async_std::test]

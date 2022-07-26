@@ -1,7 +1,6 @@
 use std::{
-    ptr::NonNull,
     sync::{Arc, Mutex},
-    task::{Context, Poll},
+    task::Poll,
 };
 
 pub struct Waker<Output> {
