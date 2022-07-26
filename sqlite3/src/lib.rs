@@ -105,10 +105,10 @@ impl Drop for Sqlite3Connection {
     }
 }
 
-impl Connection for Sqlite3Connection {
-    fn begin(&mut self) -> driver::Begin {
-        let (fut, waker) = driver::Begin::new();
+use anyhow::Result;
 
+impl Sqlite3Connection {
+    fn _begin(&mut self, waker: rdbc::SharedWaker<Result<Box<dyn driver::Transaction>>>) {
         let rc = unsafe {
             let c_str = CString::new("BEGIN").unwrap();
 
@@ -127,7 +127,7 @@ impl Connection for Sqlite3Connection {
                 .unwrap()
                 .ready(Err(db_native_error(self.db, rc)));
 
-            return fut;
+            return;
         }
 
         waker.lock().unwrap().ready(Ok(Box::new(Sqlite3Transaction {
@@ -137,25 +137,24 @@ impl Connection for Sqlite3Connection {
             },
             finished: false,
         })));
-
-        fut
     }
 
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn is_valid(&self) -> bool {
-        true
-    }
-
-    fn prepare(&mut self, query: &str) -> driver::Prepare {
-        let (fut, waker) = driver::Prepare::new();
-
+    fn _prepare(
+        &mut self,
+        query: &str,
+        waker: rdbc::SharedWaker<Result<Box<dyn driver::Statement>>>,
+    ) {
         let sqlite3_query = str_to_cstring(&waker, query);
 
         if sqlite3_query.is_none() {
-            return fut;
+            waker
+                .lock()
+                .unwrap()
+                .ready(Err(anyhow::Error::new(Sqlite3Error::InvalidInput(
+                    "query".to_string(),
+                    query.to_owned(),
+                ))));
+            return;
         }
 
         let mut stmt = null_mut();
@@ -175,7 +174,7 @@ impl Connection for Sqlite3Connection {
                 .lock()
                 .unwrap()
                 .ready(Err(error_with_sql(self.db, rc, query)));
-            return fut;
+            return;
         }
 
         // If the input text contains no SQL (if the input is an empty string or a comment) then *ppStmt is set to NULL.
@@ -184,13 +183,37 @@ impl Connection for Sqlite3Connection {
                 .lock()
                 .unwrap()
                 .ready(Err(anyhow::anyhow!("invalid input sql {}", query)));
-            return fut;
+            return;
         }
 
         waker
             .lock()
             .unwrap()
             .ready(Ok(Box::new(Sqlite3Statement::new(self.db, stmt))));
+    }
+}
+
+impl Connection for Sqlite3Connection {
+    fn begin(&mut self) -> driver::Begin {
+        let (fut, waker) = driver::Begin::new();
+
+        self._begin(waker);
+
+        fut
+    }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn is_valid(&self) -> bool {
+        true
+    }
+
+    fn prepare(&mut self, query: &str) -> driver::Prepare {
+        let (fut, waker) = driver::Prepare::new();
+
+        self._prepare(query, waker);
 
         fut
     }

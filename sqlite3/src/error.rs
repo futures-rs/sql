@@ -16,6 +16,9 @@ pub enum Sqlite3Error {
 
     #[error("Sqlite3 get column data out of range {0}")]
     OutOfRange(u64),
+
+    #[error("Invalid input argument: {0} {1}")]
+    InvalidInput(String, String),
 }
 
 pub fn native_error(code: i32, message: String) -> anyhow::Error {
