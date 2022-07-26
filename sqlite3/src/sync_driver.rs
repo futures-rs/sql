@@ -20,6 +20,8 @@ struct SyncConnection {
     inner: sqlite3_rs::Connection,
 }
 
+unsafe impl Send for SyncConnection {}
+
 impl Into<Box<dyn driver::Connection>> for SyncConnection {
     fn into(self) -> Box<dyn driver::Connection> {
         Box::new(self)
@@ -109,6 +111,8 @@ impl Into<Box<dyn driver::Statement>> for SyncStatement {
     }
 }
 
+unsafe impl Send for SyncStatement {}
+
 impl driver::Statement for SyncStatement {
     fn execute(&mut self, args: Vec<rdbc::NamedValue>) -> driver::Execute {
         let (fut, waker) = driver::Execute::new();
@@ -144,6 +148,8 @@ impl Into<Box<dyn driver::Rows>> for SyncRows {
         Box::new(self)
     }
 }
+
+unsafe impl Send for SyncRows {}
 
 impl driver::Rows for SyncRows {
     fn colunms(&mut self) -> driver::Columns {

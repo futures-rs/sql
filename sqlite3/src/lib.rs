@@ -2,7 +2,6 @@ pub mod error;
 
 pub mod sqlite3_rs;
 
-// #[cfg(not(feature = "async-sqlite3"))]
 pub mod sync_driver;
 
 #[cfg(feature = "async-sqlite3")]

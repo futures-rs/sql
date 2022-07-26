@@ -44,10 +44,10 @@ pub enum Task {
     Columns(String, waker::SharedWaker<Result<Vec<ColumnMetaData>>>),
 
     /// Iterate to next row (resultset id, waker)
-    RowsNext(String, waker::SharedWaker<Result<Vec<ColumnMetaData>>>),
+    RowsNext(String, waker::SharedWaker<Result<bool>>),
 
-    /// Current row get value by column index (resultset id, column index, waker)
-    RowsGet(String, u64, waker::SharedWaker<Result<Vec<ColumnMetaData>>>),
+    /// Current row get value by column index (resultset id, column index,column fetch type, waker)
+    RowsGet(String, u64, ColumnType, waker::SharedWaker<Result<Value>>),
 
     /// Transaction prepare (tx id, query, waker)
     TxPrepare(

@@ -8,6 +8,7 @@ use super::statement::*;
 use super::transaction::*;
 use anyhow::*;
 
+#[derive(Clone)]
 pub struct Database {
     name: String,
     url: String,
@@ -49,11 +50,21 @@ impl Database {
         };
 
         if connection.is_none() {
-            let mut drivers = self.drivers.lock().unwrap();
+            let fut = {
+                let mut drivers = self.drivers.lock().unwrap();
 
-            if let Some(driver) = drivers.get_mut(&self.name) {
-                connection = Some(driver.open(&self.url).await?);
+                if let Some(driver) = drivers.get_mut(&self.name) {
+                    Some(driver.open(&self.url))
+                } else {
+                    None
+                }
+            };
+
+            if fut.is_none() {
+                return Err(anyhow::anyhow!("driver {} not found", self.name));
             }
+
+            connection = Some(fut.unwrap().await?);
         }
 
         Ok(connection.unwrap())

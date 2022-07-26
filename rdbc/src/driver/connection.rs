@@ -6,7 +6,7 @@ use anyhow::*;
 pub type Prepare = waker::WakableFuture<Result<Box<dyn Statement>>>;
 pub type Begin = waker::WakableFuture<Result<Box<dyn Transaction>>>;
 
-pub trait Connection {
+pub trait Connection: Send {
     /// Returns a prepared statement, bound to this connection.
     fn prepare(&mut self, query: &str) -> Prepare;
 

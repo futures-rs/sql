@@ -15,6 +15,8 @@ pub struct Statement {
     connection_pool: Arc<Mutex<HashMap<String, Box<dyn driver::Connection>>>>,
 }
 
+unsafe impl Send for Statement {}
+
 impl Statement {
     pub(crate) fn new(
         connection_pool: Arc<Mutex<HashMap<String, Box<dyn driver::Connection>>>>,

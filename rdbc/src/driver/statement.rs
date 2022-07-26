@@ -7,7 +7,7 @@ pub type Columns = waker::WakableFuture<Result<Vec<ColumnMetaData>>>;
 pub type RowsNext = waker::WakableFuture<Result<bool>>;
 pub type RowsGet = waker::WakableFuture<Result<Value>>;
 
-pub trait Statement {
+pub trait Statement: Send {
     /// Returns the number of placeholder parameters.
     ///
     /// May returns [`None`], if the driver doesn't know its number of placeholder
@@ -42,7 +42,7 @@ pub struct ExecuteResult {
     pub raws_affected: u64,
 }
 
-pub trait Rows {
+pub trait Rows: Send {
     fn colunms(&mut self) -> Columns;
 
     fn next(&mut self) -> RowsNext;

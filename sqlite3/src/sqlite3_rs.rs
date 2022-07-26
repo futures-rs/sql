@@ -57,6 +57,8 @@ pub struct Connection {
     pub id: String,
 }
 
+unsafe impl Send for Connection {}
+
 impl Connection {
     pub fn open(name: &str) -> Result<Self> {
         unsafe {
@@ -273,6 +275,7 @@ impl Statement {
             stmt: self.stmt,
             columns: None,
             has_next: false,
+            id: uuid::Uuid::new_v4().to_string(),
         });
     }
 }
@@ -363,6 +366,7 @@ pub struct Rows {
     stmt: *mut sqlite3_stmt,
     columns: Option<Vec<driver::ColumnMetaData>>,
     has_next: bool,
+    pub id: String,
 }
 
 impl Rows {

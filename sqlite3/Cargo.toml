@@ -7,6 +7,7 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0.57"
+
 log = "0.4.16"
 nom = "7.1.1"
 rdbc = {path = "../rdbc"}
@@ -23,9 +24,13 @@ version = "1.1.2"
 
 [dev-dependencies]
 async-std = {version = "1.11.0", features = ["attributes", "default"]}
+criterion = {version = "0.3", features = ["async_futures", "html_reports"]}
 dotenv = "0.15.0"
 pretty_env_logger = "0.4.0"
 
 [features]
 async-sqlite3 = []
-sync-sqlite3 = []
+
+[[bench]]
+harness = false
+name = "cuad_benchmark"
