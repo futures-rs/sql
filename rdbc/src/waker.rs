@@ -40,7 +40,6 @@ pub fn new_shared_waker<Output>() -> SharedWaker<Output> {
     }))
 }
 
-/// Future for [`open`](Driver::open) method
 #[must_use = "futures do nothing unless you `.await` or poll them"]
 pub struct WakableFuture<Output> {
     pub waker: SharedWaker<Output>,
