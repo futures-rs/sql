@@ -2,4 +2,5 @@
 members = [
   "rdbc",
   "sqlite3",
+  "orm",
 ]

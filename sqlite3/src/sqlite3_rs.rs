@@ -51,6 +51,15 @@ pub fn stmt_sql(stmt: *mut sqlite3_stmt) -> String {
     }
 }
 
+pub fn stmt_original_sql(stmt: *mut sqlite3_stmt) -> String {
+    unsafe {
+        CStr::from_ptr(sqlite3_sql(stmt))
+            .to_string_lossy()
+            .to_owned()
+            .to_string()
+    }
+}
+
 /// sqlite connection object
 pub struct Connection {
     db: *mut sqlite3,
@@ -193,21 +202,35 @@ impl Statement {
         sqlite3_clear_bindings(self.stmt);
 
         for arg in args {
+            let mut index = arg.ordinal as i32;
+
+            if let Some(named) = arg.name {
+                let c_named = CString::new(named.as_str())?;
+                index = sqlite3_bind_parameter_index(self.stmt, c_named.as_ptr());
+
+                if 0 == index {
+                    return Err(anyhow::Error::new(error::Sqlite3Error::BindNamedArgError(
+                        stmt_original_sql(self.stmt),
+                        named,
+                    )));
+                }
+            }
+
             let rc = match arg.value {
                 driver::Value::Bytes(bytes) => {
                     let ptr = bytes.as_ptr();
                     let len = bytes.len();
                     sqlite3_bind_blob(
                         self.stmt,
-                        arg.ordinal as i32,
+                        index,
                         ptr as *const c_void,
                         len as i32,
                         Some(std::mem::transmute(SQLITE_TRANSIENT as usize)),
                     )
                 }
-                driver::Value::F64(f64) => sqlite3_bind_double(self.stmt, arg.ordinal as i32, f64),
+                driver::Value::F64(f64) => sqlite3_bind_double(self.stmt, index, f64),
 
-                driver::Value::I64(i64) => sqlite3_bind_int64(self.stmt, arg.ordinal as i32, i64),
+                driver::Value::I64(i64) => sqlite3_bind_int64(self.stmt, index, i64),
 
                 driver::Value::String(str) => {
                     let str = CString::new(str)?;
@@ -217,7 +240,7 @@ impl Statement {
 
                     sqlite3_bind_text(
                         self.stmt,
-                        arg.ordinal as i32,
+                        index,
                         ptr,
                         len,
                         Some(std::mem::transmute(SQLITE_TRANSIENT as usize)),
