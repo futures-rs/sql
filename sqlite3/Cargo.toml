@@ -7,7 +7,6 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0.57"
-
 log = "0.4.16"
 nom = "7.1.1"
 rdbc = {path = "../rdbc"}
