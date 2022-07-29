@@ -15,16 +15,39 @@ pub trait Statement: Send {
 
     /// Executes a query that doesn't return rows, such
     /// as an INSERT or UPDATE.
-    fn execute(&mut self, args: Vec<NamedValue>) -> Execute;
+    fn execute(&mut self, args: Vec<Arg>) -> Execute;
 
     /// executes a query that may return rows, such as a
     /// SELECT.
-    fn query(&mut self, args: Vec<NamedValue>) -> Query;
+    fn query(&mut self, args: Vec<Arg>) -> Query;
 }
 
-pub struct NamedValue {
-    pub name: Option<String>,
-    pub ordinal: u64,
+#[derive(Debug, Clone)]
+pub enum Placeholder {
+    Name(String),
+    Index(u64),
+}
+
+impl From<u64> for Placeholder {
+    fn from(data: u64) -> Self {
+        Placeholder::Index(data)
+    }
+}
+
+impl From<String> for Placeholder {
+    fn from(data: String) -> Self {
+        Placeholder::Name(data)
+    }
+}
+
+impl From<&str> for Placeholder {
+    fn from(data: &str) -> Self {
+        Placeholder::Name(data.to_owned())
+    }
+}
+
+pub struct Arg {
+    pub pos: Placeholder,
     pub value: Value,
 }
 
@@ -47,7 +70,7 @@ pub trait Rows: Send {
 
     fn next(&mut self) -> RowsNext;
 
-    fn get(&mut self, index: u64, column_type: ColumnType) -> RowsGet;
+    fn get(&mut self, pos: Placeholder, column_type: ColumnType) -> RowsGet;
 }
 
 #[derive(Clone, Debug, PartialEq)]

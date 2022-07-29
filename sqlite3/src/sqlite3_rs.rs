@@ -197,24 +197,31 @@ pub struct Statement {
     pub id: String,
 }
 
+fn get_bind_index(stmt: *mut sqlite3_stmt, pos: driver::Placeholder) -> anyhow::Result<i32> {
+    let index = match &pos {
+        driver::Placeholder::Index(index) => *index as i32,
+        driver::Placeholder::Name(name) => {
+            let c_named = CString::new(name.as_str())?;
+            unsafe { sqlite3_bind_parameter_index(stmt, c_named.as_ptr()) }
+        }
+    };
+
+    if index == 0 {
+        return Err(anyhow::Error::new(error::Sqlite3Error::BindArgError(
+            stmt_original_sql(stmt),
+            format!("{:?}", pos),
+        )));
+    }
+
+    return Ok(index);
+}
+
 impl Statement {
-    unsafe fn bind_args(&mut self, args: Vec<rdbc::NamedValue>) -> anyhow::Result<()> {
+    unsafe fn bind_args(&mut self, args: Vec<rdbc::Arg>) -> anyhow::Result<()> {
         sqlite3_clear_bindings(self.stmt);
 
         for arg in args {
-            let mut index = arg.ordinal as i32;
-
-            if let Some(named) = arg.name {
-                let c_named = CString::new(named.as_str())?;
-                index = sqlite3_bind_parameter_index(self.stmt, c_named.as_ptr());
-
-                if 0 == index {
-                    return Err(anyhow::Error::new(error::Sqlite3Error::BindNamedArgError(
-                        stmt_original_sql(self.stmt),
-                        named,
-                    )));
-                }
-            }
+            let index = get_bind_index(self.stmt, arg.pos)?;
 
             let rc = match arg.value {
                 driver::Value::Bytes(bytes) => {
@@ -258,7 +265,7 @@ impl Statement {
         Ok(())
     }
 
-    pub fn execute(&mut self, args: Vec<rdbc::NamedValue>) -> Result<driver::ExecuteResult> {
+    pub fn execute(&mut self, args: Vec<rdbc::Arg>) -> Result<driver::ExecuteResult> {
         unsafe { self.bind_args(args) }?;
 
         log::trace!("execute sql {}", stmt_sql(self.stmt));
@@ -290,7 +297,7 @@ impl Statement {
         Some(unsafe { sqlite3_bind_parameter_count(self.stmt) } as u32)
     }
 
-    pub fn query(&mut self, args: Vec<rdbc::NamedValue>) -> Result<Rows> {
+    pub fn query(&mut self, args: Vec<rdbc::Arg>) -> Result<Rows> {
         unsafe { self.bind_args(args) }?;
 
         return Ok(Rows {
@@ -393,7 +400,7 @@ pub struct Rows {
 }
 
 impl Rows {
-    pub fn colunms(&mut self) -> Result<Vec<driver::ColumnMetaData>> {
+    pub fn colunms(&mut self) -> Result<&Vec<driver::ColumnMetaData>> {
         if self.columns.is_none() {
             let mut columns = vec![];
 
@@ -417,18 +424,38 @@ impl Rows {
             self.columns = Some(columns);
         }
 
-        Ok(self.columns.clone().unwrap())
+        Ok(self.columns.as_ref().unwrap())
     }
 
-    pub fn get(&mut self, index: u64, column_type: driver::ColumnType) -> Result<rdbc::Value> {
+    pub fn get(
+        &mut self,
+        pos: driver::Placeholder,
+        column_type: driver::ColumnType,
+    ) -> Result<rdbc::Value> {
         log::trace!(
-            "{} :get column({},{:?})",
+            "{} :get column({:?},{:?})",
             stmt_sql(self.stmt),
-            index,
+            pos,
             column_type
         );
 
-        let index = index as i32;
+        let index = match pos {
+            driver::Placeholder::Index(index) => index as i32,
+            driver::Placeholder::Name(name) => {
+                let columns = self.colunms()?;
+
+                let col = columns
+                    .iter()
+                    .find(|column| column.column_name == name)
+                    .map(|c| c.column_index as i32);
+
+                if let Some(index) = col {
+                    index
+                } else {
+                    return Err(anyhow::Error::new(error::Sqlite3Error::UnknownColumn(name)));
+                }
+            }
+        };
 
         let max_index = unsafe { sqlite3_column_count(self.stmt) };
 

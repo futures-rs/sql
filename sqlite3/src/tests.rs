@@ -61,14 +61,12 @@ async fn test_stmt() {
 
     let result = stmt
         .execute(vec![
-            rdbc::NamedValue {
-                name: None,
-                ordinal: 1,
+            rdbc::Arg {
+                pos: rdbc::Placeholder::Index(1),
                 value: driver::Value::String("hello world".to_owned()),
             },
-            rdbc::NamedValue {
-                name: None,
-                ordinal: 2,
+            rdbc::Arg {
+                pos: rdbc::Placeholder::Index(2),
                 value: driver::Value::String("7.82910138827292".to_owned()),
             },
         ])
@@ -160,14 +158,12 @@ async fn test_stmt_named_args() {
 
     let result = stmt
         .execute(vec![
-            rdbc::NamedValue {
-                name: Some(":y".to_owned()),
-                ordinal: 1,
+            rdbc::Arg {
+                pos: rdbc::Placeholder::Name(":y".to_owned()),
                 value: driver::Value::String("hello world".to_owned()),
             },
-            rdbc::NamedValue {
-                name: Some(":z".to_owned()),
-                ordinal: 2,
+            rdbc::Arg {
+                pos: rdbc::Placeholder::Name(":z".to_owned()),
                 value: driver::Value::String("7.82910138827292".to_owned()),
             },
         ])
@@ -194,6 +190,72 @@ async fn test_stmt_named_args() {
     assert_eq!(y, rdbc::Value::String("hello world".to_owned()));
 
     let z = rows.get(2, driver::ColumnType::String).await.unwrap();
+
+    assert_eq!(z, rdbc::Value::String("7.82910138827292".to_owned()));
+
+    assert!(!rows.next().await.unwrap());
+}
+
+#[async_std::test]
+async fn test_multi_stmt() {
+    _ = pretty_env_logger::try_init();
+    _ = register_sqlite3();
+
+    let mut db = open("sqlite3", "file:test_multi_stmt?mode=memory&cache=shared").unwrap();
+
+    let mut stmt = db
+        .prepare("CREATE TABLE t(x INTEGER PRIMARY KEY ASC, y TEXT, z NUMERIC);")
+        .await
+        .unwrap();
+
+    stmt.execute(vec![]).await.unwrap();
+
+    let mut stmt = db
+        .prepare("INSERT INTO t(y,z) VALUES(@y,:z);")
+        .await
+        .unwrap();
+
+    let mut stmt2 = db.prepare("SELECT * FROM t").await.unwrap();
+
+    let result = stmt
+        .execute(vec![
+            rdbc::Arg {
+                pos: rdbc::Placeholder::Name("@y".to_owned()),
+                value: driver::Value::String("hello world".to_owned()),
+            },
+            rdbc::Arg {
+                pos: rdbc::Placeholder::Name(":z".to_owned()),
+                value: driver::Value::String("7.82910138827292".to_owned()),
+            },
+        ])
+        .await
+        .unwrap();
+
+    assert_eq!(result.last_insert_id, 1);
+    assert_eq!(result.raws_affected, 1);
+
+    let mut rows = stmt2.query(vec![]).await.unwrap();
+
+    assert!(rows.next().await.unwrap());
+
+    let id = rows
+        .get(rdbc::Placeholder::Index(0), driver::ColumnType::I64)
+        .await
+        .unwrap();
+
+    assert_eq!(id, rdbc::Value::I64(1));
+
+    let y = rows
+        .get(rdbc::Placeholder::Index(1), driver::ColumnType::String)
+        .await
+        .unwrap();
+
+    assert_eq!(y, rdbc::Value::String("hello world".to_owned()));
+
+    let z = rows
+        .get(rdbc::Placeholder::Index(2), driver::ColumnType::String)
+        .await
+        .unwrap();
 
     assert_eq!(z, rdbc::Value::String("7.82910138827292".to_owned()));
 
@@ -229,14 +291,12 @@ async fn test_tx_commit_data() {
 
         let result = stmt
             .execute(vec![
-                rdbc::NamedValue {
-                    name: None,
-                    ordinal: 1,
+                rdbc::Arg {
+                    pos: rdbc::Placeholder::Index(1),
                     value: driver::Value::String("hello world".to_owned()),
                 },
-                rdbc::NamedValue {
-                    name: None,
-                    ordinal: 2,
+                rdbc::Arg {
+                    pos: rdbc::Placeholder::Index(2),
                     value: driver::Value::String("7.82910138827292".to_owned()),
                 },
             ])
@@ -280,15 +340,24 @@ async fn test_tx_commit_data() {
 
         assert!(rows.next().await.unwrap());
 
-        let id = rows.get(0, driver::ColumnType::I64).await.unwrap();
+        let id = rows
+            .get(rdbc::Placeholder::Index(0), driver::ColumnType::I64)
+            .await
+            .unwrap();
 
         assert_eq!(id, rdbc::Value::I64(1));
 
-        let y = rows.get(1, driver::ColumnType::String).await.unwrap();
+        let y = rows
+            .get(rdbc::Placeholder::Index(1), driver::ColumnType::String)
+            .await
+            .unwrap();
 
         assert_eq!(y, rdbc::Value::String("hello world".to_owned()));
 
-        let z = rows.get(2, driver::ColumnType::String).await.unwrap();
+        let z = rows
+            .get(rdbc::Placeholder::Index(2), driver::ColumnType::String)
+            .await
+            .unwrap();
 
         assert_eq!(z, rdbc::Value::String("7.82910138827292".to_owned()));
 
@@ -331,15 +400,24 @@ async fn test_tx_commit_data() {
 
     assert!(rows.next().await.unwrap());
 
-    let id = rows.get(0, driver::ColumnType::I64).await.unwrap();
+    let id = rows
+        .get(rdbc::Placeholder::Index(0), driver::ColumnType::I64)
+        .await
+        .unwrap();
 
     assert_eq!(id, rdbc::Value::I64(1));
 
-    let y = rows.get(1, driver::ColumnType::String).await.unwrap();
+    let y = rows
+        .get(rdbc::Placeholder::Index(1), driver::ColumnType::String)
+        .await
+        .unwrap();
 
     assert_eq!(y, rdbc::Value::String("hello world".to_owned()));
 
-    let z = rows.get(2, driver::ColumnType::String).await.unwrap();
+    let z = rows
+        .get(rdbc::Placeholder::Index(2), driver::ColumnType::String)
+        .await
+        .unwrap();
 
     assert_eq!(z, rdbc::Value::String("7.82910138827292".to_owned()));
 }
@@ -373,14 +451,12 @@ async fn test_tx_rollback_data() {
 
         let result = stmt
             .execute(vec![
-                rdbc::NamedValue {
-                    name: None,
-                    ordinal: 1,
+                rdbc::Arg {
+                    pos: rdbc::Placeholder::Index(1),
                     value: driver::Value::String("hello world".to_owned()),
                 },
-                rdbc::NamedValue {
-                    name: None,
-                    ordinal: 2,
+                rdbc::Arg {
+                    pos: rdbc::Placeholder::Index(2),
                     value: driver::Value::String("7.82910138827292".to_owned()),
                 },
             ])
@@ -424,15 +500,24 @@ async fn test_tx_rollback_data() {
 
         assert!(rows.next().await.unwrap());
 
-        let id = rows.get(0, driver::ColumnType::I64).await.unwrap();
+        let id = rows
+            .get(rdbc::Placeholder::Index(0), driver::ColumnType::I64)
+            .await
+            .unwrap();
 
         assert_eq!(id, rdbc::Value::I64(1));
 
-        let y = rows.get(1, driver::ColumnType::String).await.unwrap();
+        let y = rows
+            .get(rdbc::Placeholder::Index(1), driver::ColumnType::String)
+            .await
+            .unwrap();
 
         assert_eq!(y, rdbc::Value::String("hello world".to_owned()));
 
-        let z = rows.get(2, driver::ColumnType::String).await.unwrap();
+        let z = rows
+            .get(rdbc::Placeholder::Index(2), driver::ColumnType::String)
+            .await
+            .unwrap();
 
         assert_eq!(z, rdbc::Value::String("7.82910138827292".to_owned()));
 

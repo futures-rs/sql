@@ -27,18 +27,10 @@ pub enum Task {
     Open(String, waker::SharedWaker<Result<Box<dyn Connection>>>),
 
     /// (stmt id, args, waker)
-    Execute(
-        String,
-        Vec<NamedValue>,
-        waker::SharedWaker<Result<ExecuteResult>>,
-    ),
+    Execute(String, Vec<Arg>, waker::SharedWaker<Result<ExecuteResult>>),
 
     /// (stmt id, args, waker)
-    Query(
-        String,
-        Vec<NamedValue>,
-        waker::SharedWaker<Result<Box<dyn Rows>>>,
-    ),
+    Query(String, Vec<Arg>, waker::SharedWaker<Result<Box<dyn Rows>>>),
 
     /// (resultset id, waker)
     Columns(String, waker::SharedWaker<Result<Vec<ColumnMetaData>>>),
@@ -47,7 +39,12 @@ pub enum Task {
     RowsNext(String, waker::SharedWaker<Result<bool>>),
 
     /// Current row get value by column index (resultset id, column index,column fetch type, waker)
-    RowsGet(String, u64, ColumnType, waker::SharedWaker<Result<Value>>),
+    RowsGet(
+        String,
+        Placeholder,
+        ColumnType,
+        waker::SharedWaker<Result<Value>>,
+    ),
 
     /// Transaction prepare (tx id, query, waker)
     TxPrepare(

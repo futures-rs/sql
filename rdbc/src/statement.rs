@@ -4,7 +4,7 @@ use std::{
 };
 
 use super::driver;
-use super::driver::{ExecuteResult, NamedValue};
+use super::driver::{Arg, ExecuteResult};
 use super::rows::*;
 use anyhow::*;
 
@@ -36,7 +36,7 @@ impl Statement {
 
     /// Executes a query that doesn't return rows, such
     /// as an INSERT or UPDATE.
-    pub async fn execute(&mut self, args: Vec<NamedValue>) -> Result<ExecuteResult> {
+    pub async fn execute(&mut self, args: Vec<Arg>) -> Result<ExecuteResult> {
         let fut = self.statement.execute(args);
 
         // drop(self);
@@ -46,7 +46,7 @@ impl Statement {
 
     /// executes a query that may return rows, such as a
     /// SELECT.
-    pub async fn query(&mut self, args: Vec<NamedValue>) -> Result<Rows> {
+    pub async fn query(&mut self, args: Vec<Arg>) -> Result<Rows> {
         let fut = self.statement.query(args);
 
         let rows = fut.await?;

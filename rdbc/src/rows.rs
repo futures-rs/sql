@@ -20,7 +20,10 @@ impl Rows {
         self.inner.next().await
     }
 
-    pub async fn get(&mut self, index: u64, column_type: driver::ColumnType) -> Result<Value> {
-        self.inner.get(index, column_type).await
+    pub async fn get<Pos>(&mut self, pos: Pos, column_type: driver::ColumnType) -> Result<Value>
+    where
+        Pos: Into<Placeholder>,
+    {
+        self.inner.get(pos.into(), column_type).await
     }
 }

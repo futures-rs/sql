@@ -12,7 +12,7 @@ use std::{
 
 use rdbc_sqlite3::*;
 
-use rdbc::Value;
+use rdbc::{Placeholder, Value};
 
 #[allow(dead_code)]
 async fn prepare_benchmark() -> rdbc::Database {
@@ -49,14 +49,12 @@ async fn insert_one_row(mut db: rdbc::Database) {
 
     _ = stmt
         .execute(vec![
-            rdbc::NamedValue {
-                name: None,
-                ordinal: 1,
+            rdbc::Arg {
+                pos: Placeholder::Index(1),
                 value: Value::String("hello world".to_owned()),
             },
-            rdbc::NamedValue {
-                name: None,
-                ordinal: 2,
+            rdbc::Arg {
+                pos: Placeholder::Index(2),
                 value: Value::String("7.82910138827292".to_owned()),
             },
         ])

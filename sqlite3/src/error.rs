@@ -17,8 +17,11 @@ pub enum Sqlite3Error {
     #[error("Sqlite3 get column data out of range {0}")]
     OutOfRange(u64),
 
-    #[error("{0} bind named arg({1}) error")]
-    BindNamedArgError(String, String),
+    #[error("stmt '{0}' bind named arg({1}) failed")]
+    BindArgError(String, String),
+
+    #[error("Sqlite3 get column by name {0}, not found")]
+    UnknownColumn(String),
 }
 
 pub fn native_error(code: i32, message: String) -> anyhow::Error {

@@ -135,7 +135,10 @@ impl AsyncDriver {
 
                 driver::Task::Columns(id, waker) => {
                     if let Some(rows) = fetch_object(&waker, &mut results, &id) {
-                        waker.lock().unwrap().ready(rows.colunms());
+                        waker
+                            .lock()
+                            .unwrap()
+                            .ready(rows.colunms().map(|c| c.clone()));
                     }
                 }
 
@@ -145,9 +148,9 @@ impl AsyncDriver {
                     }
                 }
 
-                driver::Task::RowsGet(id, index, col_type, waker) => {
+                driver::Task::RowsGet(id, pos, col_type, waker) => {
                     if let Some(rows) = fetch_object(&waker, &mut results, &id) {
-                        waker.lock().unwrap().ready(rows.get(index, col_type));
+                        waker.lock().unwrap().ready(rows.get(pos, col_type));
                     }
                 }
 
@@ -353,7 +356,7 @@ impl Into<Box<dyn driver::Statement>> for AsyncStatement {
 }
 
 impl driver::Statement for AsyncStatement {
-    fn execute(&mut self, args: Vec<rdbc::NamedValue>) -> driver::Execute {
+    fn execute(&mut self, args: Vec<rdbc::Arg>) -> driver::Execute {
         let (fut, waker) = driver::Execute::new();
 
         send_task(
@@ -369,7 +372,7 @@ impl driver::Statement for AsyncStatement {
         self.inputs
     }
 
-    fn query(&mut self, args: Vec<rdbc::NamedValue>) -> driver::Query {
+    fn query(&mut self, args: Vec<rdbc::Arg>) -> driver::Query {
         let (fut, waker) = driver::Query::new();
 
         send_task(
@@ -414,13 +417,17 @@ impl driver::Rows for AsyncRows {
         fut
     }
 
-    fn get(&mut self, index: u64, column_type: driver::ColumnType) -> driver::RowsGet {
+    fn get(
+        &mut self,
+        pos: driver::Placeholder,
+        column_type: driver::ColumnType,
+    ) -> driver::RowsGet {
         let (fut, waker) = driver::RowsGet::new();
 
         send_task(
             &mut self.sender,
             waker.clone(),
-            driver::Task::RowsGet(self.id.clone(), index, column_type, waker),
+            driver::Task::RowsGet(self.id.clone(), pos, column_type, waker),
         );
 
         fut

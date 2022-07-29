@@ -114,7 +114,7 @@ impl Into<Box<dyn driver::Statement>> for SyncStatement {
 unsafe impl Send for SyncStatement {}
 
 impl driver::Statement for SyncStatement {
-    fn execute(&mut self, args: Vec<rdbc::NamedValue>) -> driver::Execute {
+    fn execute(&mut self, args: Vec<rdbc::Arg>) -> driver::Execute {
         let (fut, waker) = driver::Execute::new();
 
         waker.lock().unwrap().ready(self.inner.execute(args));
@@ -126,7 +126,7 @@ impl driver::Statement for SyncStatement {
         self.inner.num_input()
     }
 
-    fn query(&mut self, args: Vec<rdbc::NamedValue>) -> driver::Query {
+    fn query(&mut self, args: Vec<rdbc::Arg>) -> driver::Query {
         let (fut, waker) = driver::Query::new();
 
         waker.lock().unwrap().ready(
@@ -155,12 +155,19 @@ impl driver::Rows for SyncRows {
     fn colunms(&mut self) -> driver::Columns {
         let (fut, waker) = driver::Columns::new();
 
-        waker.lock().unwrap().ready(self.inner.colunms());
+        waker
+            .lock()
+            .unwrap()
+            .ready(self.inner.colunms().map(|c| c.clone()));
 
         fut
     }
 
-    fn get(&mut self, index: u64, column_type: driver::ColumnType) -> driver::RowsGet {
+    fn get(
+        &mut self,
+        index: driver::Placeholder,
+        column_type: driver::ColumnType,
+    ) -> driver::RowsGet {
         let (fut, waker) = driver::RowsGet::new();
 
         waker
