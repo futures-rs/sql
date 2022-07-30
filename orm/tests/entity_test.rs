@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use rdbc_serde::*;
+use rdbc_serde::{Deserializer, Serializer};
 
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Default)]
 struct TestTable {
+    id: i32,
     data: Data,
 }
 
@@ -20,7 +21,7 @@ fn test_serializer() {
 
     let table = TestTable::default();
 
-    let mut serializer = Serializer {};
+    let mut serializer = Serializer::default();
 
     table.serialize(&mut serializer).unwrap();
 }

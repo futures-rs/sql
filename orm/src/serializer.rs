@@ -2,7 +2,23 @@ use serde::{ser, Serialize};
 
 use super::error::{Result, SerdeError};
 
-pub struct Serializer {}
+#[derive(Default)]
+pub struct Serializer {
+    json_data: String,
+    level: u32,
+}
+
+impl<'a> Serializer {
+    fn next_level(&mut self, f: impl FnOnce() -> Result<()>) -> Result<()> {
+        self.level += 1;
+
+        let r = f();
+
+        self.level -= 1;
+
+        r
+    }
+}
 
 impl<'a> ser::Serializer for &'a mut Serializer {
     type Ok = ();
@@ -222,8 +238,12 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     // omit the field names when serializing structs because the corresponding
     // Deserialize implementation is required to know what the keys are without
     // looking at the serialized data.
-    fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-        log::debug!("serialize {} {}", _name, len);
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
+        log::debug!("serialize table({}) level({})", _name, self.level);
+        if self.level != 0 {
+            self.json_data += "{";
+        }
+
         Ok(self)
     }
 
@@ -380,14 +400,37 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     where
         T: ?Sized + Serialize,
     {
-        log::debug!("serialize field {}", key);
+        if self.level == 0 {
+            self.level += 1;
+            key.serialize(&mut **self)?;
 
-        key.serialize(&mut **self)?;
+            value.serialize(&mut **self)?;
 
-        value.serialize(&mut **self)
+            self.level -= 1;
+
+            Ok(())
+        } else {
+            if !self.json_data.ends_with('{') {
+                self.json_data += ",";
+            }
+
+            self.json_data += &serde_json::to_string(key).map_err(ser::Error::custom)?;
+
+            self.json_data += ":";
+
+            self.json_data += &serde_json::to_string(value).map_err(ser::Error::custom)?;
+
+            Ok(())
+        }
     }
 
     fn end(self) -> Result<()> {
+        if self.level != 0 {
+            self.json_data += "}";
+            log::debug!("{}", self.json_data);
+            self.json_data.clear();
+        }
+
         Ok(())
     }
 }
