@@ -1,6 +1,8 @@
 use anyhow::Result;
 
-pub trait Serializer {}
+pub trait Serializer {
+    fn next(&mut self, placehodler: rdbc::Placeholder) -> Result<()>;
+}
 
 pub trait Serialize {
     fn orm_seralize<S>(&self, ser: &mut S) -> Result<()>

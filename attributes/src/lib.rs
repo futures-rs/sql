@@ -40,13 +40,24 @@ pub fn rdbc_orm(input: TokenStream) -> TokenStream {
 
     let struct_name = &input.ident;
 
+    let serialize = fields
+        .iter()
+        .map(|field| {
+            let lit_str = format!("{}", field);
+
+            quote::quote! {
+                ser.next(rdbc::Placeholder::Name(#lit_str.to_owned()));
+                self.#field.orm_seralize(ser)?;
+
+            }
+        })
+        .collect::<Vec<_>>();
+
     let expanded = quote::quote! {
         impl #impl_generics #struct_name #ty_generics
         #where_clause {
             pub fn orm_seralize<S>(&mut self, ser: &mut S) -> rdbc_orm::anyhow::Result<()> where S: rdbc_orm::Serializer {
-                #(
-                    self.#fields.orm_seralize(ser)?;
-                )*
+                #(#serialize)*
 
                 Ok(())
             }
