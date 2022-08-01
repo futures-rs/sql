@@ -16,6 +16,8 @@ pub enum SerdeError {
     SerdeBytes,
 }
 
+unsafe impl Send for SerdeError {}
+
 impl serde::ser::Error for SerdeError {
     fn custom<T>(msg: T) -> Self
     where
