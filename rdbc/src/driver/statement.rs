@@ -22,7 +22,7 @@ pub trait Statement: Send {
     fn query(&mut self, args: Vec<Arg>) -> Query;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Placeholder {
     Name(String),
     Index(u64),
@@ -46,6 +46,7 @@ impl From<&str> for Placeholder {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Arg {
     pub pos: Placeholder,
     pub value: Value,

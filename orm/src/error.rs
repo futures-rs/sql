@@ -9,9 +9,11 @@ pub enum SerdeError {
     // Mutex<T> might return an error because the mutex is poisoned, or the
     // Deserialize impl for a struct may return an error because a required
     // field is missing.
+    #[error("{0}")]
     Message(String),
 
-    Syntax,
+    #[error("expect attribute #[serde(with = \"serde_bytes\") for Vec<u8> or &[u8]")]
+    SerdeBytes,
 }
 
 impl serde::ser::Error for SerdeError {
@@ -26,18 +28,6 @@ impl serde::ser::Error for SerdeError {
 impl serde::de::Error for SerdeError {
     fn custom<T: Display>(msg: T) -> Self {
         SerdeError::Message(msg.to_string())
-    }
-}
-
-use std::fmt;
-
-impl Display for SerdeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            SerdeError::Message(msg) => write!(f, "{}", msg),
-            /* and so forth */
-            _ => unimplemented!(),
-        }
     }
 }
 
