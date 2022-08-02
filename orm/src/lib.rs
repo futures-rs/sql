@@ -11,38 +11,76 @@ pub use ser::*;
 
 pub use anyhow;
 
-/// Execute statement with serede object
-pub async fn execute<S>(stmt: &mut rdbc::Statement, value: &S) -> Result<rdbc::ExecuteResult>
-where
-    S: ?Sized + serde::Serialize,
-{
-    let args = {
-        let mut serializer = OrmSerializer::default();
+pub trait OrmStatment {
+    fn execute<S>(&mut self, value: &S) -> rdbc::driver::Execute
+    where
+        S: ?Sized + serde::Serialize;
 
-        value.serialize(&mut serializer)?;
-
-        serializer.args
-    };
-
-    use serde::ser::Error;
-
-    stmt.execute(args).await.map_err(Error::custom)
+    fn query<S>(
+        &mut self,
+        value: &S,
+    ) -> rdbc::WakableMapFuture<
+        anyhow::Result<rdbc::Rows>,
+        anyhow::Result<Box<dyn rdbc::driver::Rows>>,
+    >
+    where
+        S: ?Sized + serde::Serialize;
 }
 
-/// Query statement with serede object
-pub async fn query<S>(stmt: &mut rdbc::Statement, value: &S) -> Result<rdbc::Rows>
-where
-    S: ?Sized + serde::Serialize,
-{
-    let args = {
-        let mut serializer = OrmSerializer::default();
+impl OrmStatment for rdbc::Statement {
+    /// Execute statement with serede object
+    fn execute<S>(&mut self, value: &S) -> rdbc::driver::Execute
+    where
+        S: ?Sized + serde::Serialize,
+    {
+        let args = {
+            let mut serializer = OrmSerializer::default();
 
-        value.serialize(&mut serializer)?;
+            match value.serialize(&mut serializer) {
+                Err(err) => {
+                    let (fut, waker) = rdbc::driver::Execute::new();
 
-        serializer.args
-    };
+                    waker.lock().unwrap().ready(Err(anyhow::Error::new(err)));
 
-    use serde::ser::Error;
+                    return fut;
+                }
+                _ => {}
+            };
 
-    stmt.query(args).await.map_err(Error::custom)
+            serializer.args
+        };
+
+        self.execute(args)
+    }
+
+    /// Query statement with serede object
+    fn query<S>(
+        &mut self,
+        value: &S,
+    ) -> rdbc::WakableMapFuture<
+        anyhow::Result<rdbc::Rows>,
+        anyhow::Result<Box<dyn rdbc::driver::Rows>>,
+    >
+    where
+        S: ?Sized + serde::Serialize,
+    {
+        let args = {
+            let mut serializer = OrmSerializer::default();
+
+            match value.serialize(&mut serializer) {
+                Err(err) => {
+                    let (fut, waker) = rdbc::WakableMapFuture::new();
+
+                    waker.lock().unwrap().ready(Err(anyhow::Error::new(err)));
+
+                    return fut;
+                }
+                _ => {}
+            }
+
+            serializer.args
+        };
+
+        self.query(args)
+    }
 }

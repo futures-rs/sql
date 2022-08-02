@@ -4,9 +4,10 @@ use std::{
 };
 
 use super::driver;
-use super::driver::{Arg, ExecuteResult};
+use super::driver::Arg;
 use super::rows::*;
-use anyhow::*;
+use super::waker;
+use anyhow::Result;
 
 /// The [`driver::Statement`] wrapper
 pub struct Statement {
@@ -36,22 +37,20 @@ impl Statement {
 
     /// Executes a query that doesn't return rows, such
     /// as an INSERT or UPDATE.
-    pub async fn execute(&mut self, args: Vec<Arg>) -> Result<ExecuteResult> {
-        let fut = self.statement.execute(args);
-
-        // drop(self);
-
-        fut.await
+    pub fn execute(&mut self, args: Vec<Arg>) -> driver::Execute {
+        self.statement.execute(args)
     }
 
     /// executes a query that may return rows, such as a
     /// SELECT.
-    pub async fn query(&mut self, args: Vec<Arg>) -> Result<Rows> {
-        let fut = self.statement.query(args);
-
-        let rows = fut.await?;
-
-        Ok(Rows::new(rows))
+    pub fn query(
+        &mut self,
+        args: Vec<Arg>,
+    ) -> waker::WakableMapFuture<Result<Rows>, Result<Box<dyn driver::Rows>>> {
+        self.statement.query(args).map(|r| match r {
+            Ok(rows) => Ok(Rows::new(rows)),
+            Err(err) => Err(err),
+        })
     }
 }
 

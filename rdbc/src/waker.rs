@@ -57,6 +57,16 @@ impl<Output> WakableFuture<Output> {
             waker,
         );
     }
+
+    pub fn map<MOutput>(
+        &self,
+        f: impl FnOnce(Output) -> MOutput + 'static,
+    ) -> WakableMapFuture<MOutput, Output> {
+        WakableMapFuture {
+            waker: self.waker.clone(),
+            map_f: Some(Box::new(f)),
+        }
+    }
 }
 
 /// Impl Future trait for Connector
@@ -68,5 +78,43 @@ impl<Output> std::future::Future for WakableFuture<Output> {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
         self.waker.lock().unwrap().poll(cx.waker().clone())
+    }
+}
+
+#[must_use = "futures do nothing unless you `.await` or poll them"]
+pub struct WakableMapFuture<MOutput, Output> {
+    pub waker: SharedWaker<Output>,
+    map_f: Option<Box<dyn FnOnce(Output) -> MOutput>>,
+}
+
+impl<MOutput, Output> WakableMapFuture<MOutput, Output> {
+    /// Create default new connector object
+    pub fn new() -> (Self, SharedWaker<Output>) {
+        let waker = new_shared_waker();
+
+        return (
+            Self {
+                waker: waker.clone(),
+                map_f: None,
+            },
+            waker,
+        );
+    }
+}
+
+/// Impl Future trait for Connector
+impl<MOutput, Output> std::future::Future for WakableMapFuture<MOutput, Output> {
+    type Output = MOutput;
+
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let poll = { self.waker.lock().unwrap().poll(cx.waker().clone()) };
+
+        match poll {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(output) => Poll::Ready(self.map_f.take().unwrap()(output)),
+        }
     }
 }
