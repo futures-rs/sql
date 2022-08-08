@@ -13,7 +13,7 @@ pub use statement::*;
 pub use transaction::*;
 pub use waker::*;
 
-pub use driver::{Arg, ColumnMetaData, ExecuteResult, Placeholder, Value};
+pub use driver::{Arg, ColumnMetaData, ColumnType, ExecuteResult, Placeholder, Value};
 
 #[cfg(feature = "global-datasource")]
 mod global {

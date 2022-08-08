@@ -14,3 +14,5 @@ pub use anyhow;
 mod col;
 
 pub use col::*;
+
+pub mod schema;

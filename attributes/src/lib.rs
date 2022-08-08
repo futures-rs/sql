@@ -1,75 +1,65 @@
+mod col;
+mod der;
+mod fields;
+mod idx;
+mod impl_body;
+mod ser;
+mod table_name;
+
+use impl_body::impl_body;
 use proc_macro::*;
-use quote::ToTokens;
-use syn::*;
+use syn::{parse_macro_input, DeriveInput};
 
-#[proc_macro_derive(ORM, attributes(column))]
-pub fn rdbc_orm(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
+use crate::table_name::table_name;
 
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+#[proc_macro_derive(
+    Table,
+    attributes(
+        col_name,
+        table_name,
+        col_index,
+        col_unique,
+        col_primary,
+        col_primary_autoinc
+    )
+)]
+pub fn rdbc_orm_derive(input: TokenStream) -> TokenStream {
+    let DeriveInput {
+        ident,
+        data,
+        attrs,
+        generics,
+        ..
+    } = parse_macro_input!(input as DeriveInput);
 
-    let fields = match input.data {
-        Data::Struct(DataStruct { fields, .. }) => {
-            if let Fields::Named(ref fields_name) = fields {
-                let fields: Vec<_> = fields_name
-                    .named
-                    .iter()
-                    .map(|field| {
-                        let field_name = field.ident.as_ref().unwrap();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-                        for attr in &field.attrs {
-                            print!("field({}) attr({})", field_name, attr.to_token_stream());
-                        }
+    let table_name_expanded = table_name(
+        &ident,
+        &impl_generics,
+        &ty_generics,
+        where_clause.clone(),
+        &attrs,
+    )
+    .unwrap();
 
-                        quote::quote! {
-                            #field_name
-                        }
-                    })
-                    .collect();
-
-                fields
-            } else {
-                panic!("sorry, may it's a complicated struct.");
-            }
-        }
-
-        _ => {
-            panic!("sorry, Show is not implemented for union or enum type.");
-        }
-    };
-
-    let struct_name = &input.ident;
-
-    let serialize = fields
-        .iter()
-        .map(|field| {
-            let lit_str = format!("{}", field);
-
-            quote::quote! {
-                ser.next(rdbc::Placeholder::Name(#lit_str.to_owned()));
-                self.#field.orm_seralize(ser)?;
-
-            }
-        })
-        .collect::<Vec<_>>();
+    let impl_body_expanded = impl_body(
+        &ident,
+        &impl_generics,
+        &ty_generics,
+        where_clause.clone(),
+        &data,
+    )
+    .unwrap();
 
     let expanded = quote::quote! {
-        impl #impl_generics #struct_name #ty_generics
-        #where_clause {
-            pub fn orm_seralize<S>(&mut self, ser: &mut S) -> rdbc_orm::anyhow::Result<()> where S: rdbc_orm::Serializer {
-                #(#serialize)*
+        #impl_body_expanded
 
-                Ok(())
-            }
 
-            pub fn orm_deseralize<D>(&mut self, de: D) where D: rdbc_orm::Deserializer {
-                // #(
-                //     self.#fields.orm_deseralize(de);
-                // )*
-            }
-        }
+        #table_name_expanded
     };
 
+    #[cfg(debug_assertions)]
     println!("{}", expanded);
 
     expanded.into()
