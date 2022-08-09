@@ -87,8 +87,10 @@ fn extract_table_idxs(data: &Data) -> anyhow::Result<Vec<TokenStream>> {
                     let idx_type = idx_types.get(name).unwrap();
 
                     quote::quote! {
-                        pub fn #idx_fn_name() -> rdbc_orm::schema::IndexDef {
-                            rdbc_orm::schema::IndexDef { name: #name.to_owned(),index_type: #idx_type, for_columns: vec![#(#field_names.to_owned()),*]}
+                        pub fn #idx_fn_name() -> &'static rdbc_orm::schema::IndexDef<'static> {
+                            static idx_def: rdbc_orm::schema::IndexDef = rdbc_orm::schema::IndexDef { name: #name,index_type: #idx_type, for_columns: &[#(#field_names),*]};
+                            
+                            &idx_def
                         }
                     }
                 }).collect::<Vec<_>>());

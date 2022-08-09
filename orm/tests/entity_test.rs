@@ -1,12 +1,15 @@
 use rdbc_attributes::*;
-use rdbc_orm::{schema, Column, Deserialize, Serialize};
+use rdbc_orm::{schema, Column, ColumnValue, Deserialize, Serialize};
 
 #[test]
 fn test_table_declare() {
     #[allow(dead_code)]
     #[derive(Table)]
     #[table_name(color_table)]
-    struct Color<Data> {
+    struct Color<Data>
+    where
+        Data: ColumnValue<ColumnType = Data> + Default,
+    {
         #[col_primary]
         id: Column<u32>,
 
@@ -21,9 +24,9 @@ fn test_table_declare() {
         date: Column<u32>,
     }
 
-    assert_eq!(Color::<i32>::column_color().col_name(), "rgb_color");
+    assert_eq!(Color::<i32>::col_color().name, "rgb_color");
 
-    assert_eq!(Color::<i32>::column_id().col_name(), "id");
+    assert_eq!(Color::<i32>::col_id().name, "id");
 
     assert_eq!(Color::<u64>::table_name(), "color_table");
 

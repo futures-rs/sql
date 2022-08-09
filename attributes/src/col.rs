@@ -67,11 +67,11 @@ fn extract_table_columns(data: &Data) -> anyhow::Result<Vec<TokenStream>> {
 
                         let column_name =  extract_column_name(field).unwrap();
 
-                        let column_fn_name = format_ident!("column_{}", field_name);
+                        let column_fn_name = format_ident!("col_{}", field_name);
 
                         quote::quote! {
                             pub fn #column_fn_name() -> rdbc_orm::schema::ColumnDef::#column_type_path {
-                                rdbc_orm::Column::#column_type_path::column_def_static(#column_name)
+                                rdbc_orm::schema::ColumnDef::#column_type_path::new(#column_name)
                             }
                         }
                     })

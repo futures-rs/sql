@@ -1,10 +1,12 @@
-use std::marker::PhantomData;
-
 use super::ser::Serializer;
 
 use super::der::Deserializer;
 
 use super::schema;
+
+mod value;
+
+pub use value::*;
 
 pub trait Serialize {
     fn orm_seralize<S>(&mut self, ser: &mut S) -> anyhow::Result<()>
@@ -20,33 +22,33 @@ pub trait Deserialize {
 
 #[derive(Debug, Default)]
 pub struct Column<Data> {
-    _marker: PhantomData<Data>,
+    _data: Option<Data>,
+    _value: Option<rdbc::Value>,
+    _column: Option<schema::ColumnDef<Data>>,
 }
 
-impl<Data> Serialize for Column<Data> {
+impl<Data> Serialize for Column<Data>
+where
+    Data: ColumnValue<ColumnType = Data> + Default,
+{
     fn orm_seralize<S>(&mut self, _ser: &mut S) -> anyhow::Result<()>
     where
         S: Serializer,
     {
+        self._data.cast_to_rdbc_value()?;
+
         Ok(())
     }
 }
 
-impl<Data> Deserialize for Column<Data> {
+impl<Data> Deserialize for Column<Data>
+where
+    Data: ColumnValue<ColumnType = Data> + Default,
+{
     fn orm_deseralize<D>(&mut self, _der: &mut D) -> anyhow::Result<()>
     where
         D: Deserializer,
     {
         Ok(())
-    }
-}
-
-impl<Data> Column<Data> {
-    pub fn column_def_static(name: &str) -> schema::ColumnDef<Data> {
-        schema::ColumnDef::<Data>::new(name)
-    }
-
-    pub fn column_def(&self, name: &str) -> schema::ColumnDef<Data> {
-        Self::column_def_static(name)
     }
 }
