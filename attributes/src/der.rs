@@ -20,20 +20,19 @@ pub fn expand_der_methods(
             let lit_str = format!("{}", field);
 
             quote::quote! {
-                der.next(rdbc::Placeholder::Name(#lit_str.to_owned()))?;
-                self.#field.orm_deseralize(der)?;
-
+                #field: rdbc_orm::Column::dserialize(rdbc::Placeholder::Name(#lit_str.to_owned()),der)?.unwrap(),
             }
         })
         .collect::<Vec<_>>();
 
     let expanded = quote::quote! {
-        impl #impl_generics #struct_name #ty_generics
+        impl #impl_generics rdbc_orm::Deserializable for #struct_name #ty_generics
         #where_clause {
-            pub fn orm_deseralize<D>(&mut self, der: &mut D) -> rdbc_orm::anyhow::Result<()> where D: rdbc_orm::Deserializer {
-                #(#deserialize)*
+            fn dserialize<D>(ph: rdbc::Placeholder, der: &mut D) -> rdbc_orm::anyhow::Result<Option<#struct_name #ty_generics>> where D: rdbc_orm::Deserializer {
 
-                Ok(())
+                Ok(Some(#struct_name {
+                    #(#deserialize)*
+                }))
             }
         }
     };

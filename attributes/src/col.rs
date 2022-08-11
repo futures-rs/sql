@@ -4,6 +4,7 @@ use quote::{format_ident, ToTokens};
 use syn::{Data, DataStruct, Field, Fields, Meta, NestedMeta, Type};
 use syn::{ImplGenerics, TypeGenerics, WhereClause};
 
+#[allow(dead_code)]
 fn is_rdbc_orm_column(field: &Field) -> Option<TokenStream> {
     match &field.ty {
         Type::Path(path) => {
@@ -60,18 +61,18 @@ fn extract_table_columns(data: &Data) -> anyhow::Result<Vec<TokenStream>> {
                     .map(|field| {
                         let field_name = field.ident.as_ref().unwrap();
 
-                        let column_type_path = is_rdbc_orm_column(field).expect(&format!(
-                            "table field '{}' type must be rdbc_orm::Column",
-                            field_name
-                        ));
+                        // let column_type_path = is_rdbc_orm_column(field).expect(&format!(
+                        //     "table field '{}' type must be rdbc_orm::Column",
+                        //     field_name
+                        // ));
 
-                        let column_name =  extract_column_name(field).unwrap();
+                        let column_name = extract_column_name(field).unwrap();
 
                         let column_fn_name = format_ident!("col_{}", field_name);
 
                         quote::quote! {
-                            pub fn #column_fn_name() -> rdbc_orm::schema::ColumnDef::#column_type_path {
-                                rdbc_orm::schema::ColumnDef::#column_type_path::new(#column_name)
+                            pub fn #column_fn_name() -> &'static str{
+                                #column_name
                             }
                         }
                     })

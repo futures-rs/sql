@@ -20,17 +20,15 @@ pub fn expand_ser_methods(
             let lit_str = format!("{}", field);
 
             quote::quote! {
-                ser.next(rdbc::Placeholder::Name(#lit_str.to_owned()))?;
-                self.#field.orm_seralize(ser)?;
-
+                self.#field.serialize(rdbc::Placeholder::Name(#lit_str.to_owned()), ser)?;
             }
         })
         .collect::<Vec<_>>();
 
     let expanded = quote::quote! {
-        impl #impl_generics #struct_name #ty_generics
+        impl #impl_generics rdbc_orm::Serializable for #struct_name #ty_generics
         #where_clause {
-            pub fn orm_seralize<S>(&mut self, ser: &mut S) -> rdbc_orm::anyhow::Result<()> where S: rdbc_orm::Serializer {
+            fn serialize<S>(&self, ph: rdbc::Placeholder, ser: &mut S) -> rdbc_orm::anyhow::Result<()> where S: rdbc_orm::Serializer {
                 #(#serialize)*
 
                 Ok(())
