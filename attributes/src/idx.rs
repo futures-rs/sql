@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::Ok;
 use proc_macro2::{Ident, TokenStream};
 
 use quote::format_ident;
@@ -9,8 +10,13 @@ use syn::{ImplGenerics, TypeGenerics, WhereClause};
 use crate::col::extract_column_name;
 
 /// Extract table name from table attrs
-fn extract_idx_name(attrs: &Vec<Attribute>) -> anyhow::Result<Option<(String, TokenStream)>> {
+fn extract_idx_name(field_name: &str, attrs: &Vec<Attribute>) -> anyhow::Result<Option<(String, TokenStream)>> {
     for attr in attrs {
+
+        if let syn::AttrStyle::Inner(_) = attr.style {
+            continue;
+        }
+
         let ident = attr.path.get_ident();
 
         if ident.is_none() {
@@ -37,23 +43,43 @@ fn extract_idx_name(attrs: &Vec<Attribute>) -> anyhow::Result<Option<(String, To
             continue;
         }
 
-        let meta: NestedMeta = attr.parse_args()?;
+        let meta  = attr.parse_args::<NestedMeta>();
+        
+        if meta.is_err() {
+        
+            if ident == "col_unique" {
+                   return Ok(Some((
+                       field_name.to_owned(),
+                       quote::quote! { rdbc_orm::schema::IndexType::Unique },
+                   )));
+            } else {
+                   return Ok(Some((
+                     field_name.to_owned(),
+                       quote::quote! { rdbc_orm::schema::IndexType::Index },
+                   )));
+            }
+        }
+
+        let meta = meta.unwrap();
 
         match meta {
-            NestedMeta::Meta(Meta::Path(table_name)) => {
+            NestedMeta::Meta(Meta::Path(path)) => {
+              
                 if ident == "col_unique" {
                     return Ok(Some((
-                        format!("{}", table_name.get_ident().unwrap()),
+                        format!("{}", path.get_ident().unwrap()),
                         quote::quote! { rdbc_orm::schema::IndexType::Unique },
                     )));
                 } else {
                     return Ok(Some((
-                        format!("{}", table_name.get_ident().unwrap()),
+                        format!("{}", path.get_ident().unwrap()),
                         quote::quote! { rdbc_orm::schema::IndexType::Index },
                     )));
                 }
             }
-            _ => {}
+            _ => {
+
+            }
         }
     }
 
@@ -66,29 +92,30 @@ fn extract_table_idxs(data: &Data) -> anyhow::Result<Vec<TokenStream>> {
         Data::Struct(DataStruct { fields, .. }) => {
             let mut idxs = HashMap::<String, Vec<String>>::new();
             let mut idx_types = HashMap::<String, TokenStream>::new();
-
+            
             if let Fields::Named(ref fields_named) = fields {
                 for field in &fields_named.named {
                     let field_name = extract_column_name(field)?;
 
-                    match extract_idx_name(&field.attrs).unwrap() {
+                    match extract_idx_name(&field_name,&field.attrs).unwrap() {
                         Some((name, index_type)) => {
                             idx_types.insert(name.clone(), index_type);
-
-                            idxs.entry(name).or_insert_with(|| vec![]).push(field_name);
+                            
+                            idxs.entry(name.clone()).or_insert_with(|| vec![]).push(field_name.clone());
                         }
                         None => continue,
                     }
                 }
 
-                return Ok(idxs.iter().map(|(name, field_names)| {
-                    let idx_fn_name = format_ident!("idx_{}", name);
+                return Ok(idxs.iter().map(|(k, field_names)| {
+            
+                    let idx_type = idx_types.get(k).unwrap();
 
-                    let idx_type = idx_types.get(name).unwrap();
+                    let idx_fn_name = format_ident!("idx_{}", k);
 
                     quote::quote! {
-                        pub fn #idx_fn_name() -> &'static rdbc_orm::schema::IndexDef<'static> {
-                            static idx_def: rdbc_orm::schema::IndexDef = rdbc_orm::schema::IndexDef { name: #name,index_type: #idx_type, for_columns: &[#(#field_names),*]};
+                        pub fn #idx_fn_name() -> &'static rdbc_orm::schema::IndexDef {
+                            static idx_def: rdbc_orm::schema::IndexDef = rdbc_orm::schema::IndexDef { name: #k,idx_type: #idx_type, columns: &[#(#field_names),*]};
                             
                             &idx_def
                         }

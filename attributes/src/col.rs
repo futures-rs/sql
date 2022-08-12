@@ -61,18 +61,20 @@ fn extract_table_columns(data: &Data) -> anyhow::Result<Vec<TokenStream>> {
                     .map(|field| {
                         let field_name = field.ident.as_ref().unwrap();
 
-                        // let column_type_path = is_rdbc_orm_column(field).expect(&format!(
-                        //     "table field '{}' type must be rdbc_orm::Column",
-                        //     field_name
-                        // ));
+                        let column_type_path = is_rdbc_orm_column(field).expect(&format!(
+                            "table field '{}' type must be rdbc_orm::Column",
+                            field_name
+                        ));
 
                         let column_name = extract_column_name(field).unwrap();
 
-                        let column_fn_name = format_ident!("col_{}", field_name);
+                        let column_fn_name = format_ident!("col_{}", column_name);
 
                         quote::quote! {
-                            pub fn #column_fn_name() -> &'static str{
-                                #column_name
+                            pub fn #column_fn_name() -> &'static rdbc_orm::schema::ColumnDef::#column_type_path {
+                                static column_def: rdbc_orm::schema::ColumnDef::#column_type_path = rdbc_orm::schema::ColumnDef::new(#column_name,None,None);
+
+                                &column_def
                             }
                         }
                     })
