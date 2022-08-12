@@ -1,62 +1,16 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
-use anyhow::{Ok, Result};
+use crate::{ColumnValue, Deserializable, Serializable, TableRef};
 
-use super::schema;
-
-/// ORM data format can serialize any data structure supported by rdbc-orm
-pub trait Serializer {
-    fn write_rdbc_value(
-        &mut self,
-        col: &mut schema::ColumnDef,
-        value: rdbc::Value,
-    ) -> anyhow::Result<()>;
-}
-
-/// ORM data format can deserialize any data structure supported by rdbc-orm
-pub trait Deserializer {
-    fn read_rdbc_value(
-        &mut self,
-        col: &mut schema::ColumnDef,
-    ) -> anyhow::Result<Option<rdbc::Value>>;
-}
-
-/// ORM column value trait
-pub trait ColumnValue {
-    fn rdbc_type() -> rdbc::ColumnType;
-}
-
-/// Indicate target object can be serializing by orm
-pub trait Serializable {
-    fn serialize<S>(&self, col: &mut schema::ColumnDef, s: &mut S) -> Result<()>
-    where
-        S: Serializer;
-}
-
-/// Indicate target object can be deserializing by orm
-pub trait Deserializable: Sized {
-    fn dserialize<D>(col: &mut schema::ColumnDef, der: &mut D) -> Result<Option<Self>>
-    where
-        D: Deserializer;
-}
-
-#[derive(Debug, Default)]
-/// ORM table declare structure
+/// ORM table normal field
 pub struct Column<T>
 where
     T: ColumnValue,
 {
-    _data: Option<T>,
-}
-
-impl<T> Column<T>
-where
-    T: ColumnValue,
-{
-    /// Get column rdbc type
-    pub fn rdbc_type() -> rdbc::ColumnType {
-        T::rdbc_type()
-    }
+    pub data: Option<T>,
 }
 
 impl<T> Deref for Column<T>
@@ -66,7 +20,7 @@ where
     type Target = Option<T>;
 
     fn deref(&self) -> &Self::Target {
-        &self._data
+        &self.data
     }
 }
 
@@ -75,147 +29,150 @@ where
     T: ColumnValue,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self._data
+        &mut self.data
     }
 }
 
-/// Impl [`Serializable`] for [`Column<T>`]
 impl<T> Serializable for Column<T>
 where
-    T: Serializable + ColumnValue,
+    T: ColumnValue + Serializable,
 {
-    fn serialize<S>(&self, col: &mut schema::ColumnDef, s: &mut S) -> Result<()>
+    fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
     where
-        S: Serializer,
+        S: crate::Serializer,
     {
-        if let Some(t) = self._data.as_ref() {
-            t.serialize(col, s)
+        if self.is_some() {
+            return self.as_ref().unwrap().serialize(col, s);
         } else {
-            Ok(())
+            return Ok(());
         }
     }
 }
 
-/// Impl [`Deserializable`] for [`Column<T>`]
 impl<T> Deserializable for Column<T>
 where
-    T: Deserializable + Default + ColumnValue,
+    T: ColumnValue + Deserializable,
 {
-    fn dserialize<D>(col: &mut schema::ColumnDef, der: &mut D) -> Result<Option<Self>>
+    fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where
-        D: Deserializer,
+        D: crate::Deserializer,
     {
-        if let Some(t) = T::dserialize(col, der)? {
-            return Ok(Some(Column { _data: Some(t) }));
+        if let Some(t) = T::dserialize(col, d)? {
+            return Ok(Some(Column { data: Some(t) }));
+        } else {
+            return Ok(None);
         }
-
-        return Ok(None);
     }
 }
 
-macro_rules! declare_col_int_type {
-    ($t:ty) => {
-        impl Serializable for $t {
-            fn serialize<S>(&self, col: &mut schema::ColumnDef, s: &mut S) -> Result<()>
-            where
-                S: Serializer,
-            {
-                s.write_rdbc_value(col, rdbc::Value::I64((*self) as i64))
-            }
-        }
-
-        impl Deserializable for $t {
-            fn dserialize<D>(col: &mut schema::ColumnDef, der: &mut D) -> Result<Option<Self>>
-            where
-                D: Deserializer,
-            {
-                if let Some(rdbc::Value::I64(i)) = der.read_rdbc_value(col)? {
-                    return Ok(Some(i as $t));
-                }
-
-                Ok(None)
-            }
-        }
-    };
+/// ORM table join to field define, specially for one to one relationship
+pub struct OneToOne<T>
+where
+    T: TableRef,
+{
+    pub data: Option<Arc<T>>,
 }
 
-macro_rules! declare_col_int_types {
-    ($($t:ty),*) => {
-        $(declare_col_int_type!($t);)*
-    };
-}
+impl<T> Deref for OneToOne<T>
+where
+    T: TableRef,
+{
+    type Target = Option<Arc<T>>;
 
-declare_col_int_types!(i8, i16, i32, i64, u8, u16, u32, u64);
-
-macro_rules! declare_col_float_type {
-    ($t:ty) => {
-        impl Serializable for $t {
-            fn serialize<S>(&self, col: &mut schema::ColumnDef, s: &mut S) -> Result<()>
-            where
-                S: Serializer,
-            {
-                s.write_rdbc_value(col, rdbc::Value::F64((*self) as f64))
-            }
-        }
-
-        impl Deserializable for $t {
-            fn dserialize<D>(col: &mut schema::ColumnDef, der: &mut D) -> Result<Option<Self>>
-            where
-                D: Deserializer,
-            {
-                if let Some(rdbc::Value::F64(i)) = der.read_rdbc_value(col)? {
-                    return Ok(Some(i as $t));
-                }
-
-                Ok(None)
-            }
-        }
-    };
-}
-
-declare_col_float_type!(f32);
-declare_col_float_type!(f64);
-
-impl Serializable for String {
-    fn serialize<S>(&self, col: &mut schema::ColumnDef, s: &mut S) -> Result<()>
-    where
-        S: Serializer,
-    {
-        s.write_rdbc_value(col, rdbc::Value::String(self.clone()))
+    fn deref(&self) -> &Self::Target {
+        &self.data
     }
 }
 
-impl Deserializable for String {
-    fn dserialize<D>(col: &mut schema::ColumnDef, der: &mut D) -> Result<Option<Self>>
-    where
-        D: Deserializer,
-    {
-        if let Some(rdbc::Value::String(i)) = der.read_rdbc_value(col)? {
-            return Ok(Some(i));
-        }
-
-        Ok(None)
+impl<T> DerefMut for OneToOne<T>
+where
+    T: TableRef,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
     }
 }
 
-impl Serializable for Vec<u8> {
-    fn serialize<S>(&self, col: &mut schema::ColumnDef, s: &mut S) -> Result<()>
-    where
-        S: Serializer,
-    {
-        s.write_rdbc_value(col, rdbc::Value::Bytes(self.clone()))
+/// ORM table join to field define, specially for one to many relationship
+pub struct OneToMany<T>
+where
+    T: TableRef,
+{
+    pub data: Option<Vec<Arc<T>>>,
+}
+
+impl<T> Deref for OneToMany<T>
+where
+    T: TableRef,
+{
+    type Target = Option<Vec<Arc<T>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
     }
 }
 
-impl Deserializable for Vec<u8> {
-    fn dserialize<D>(col: &mut schema::ColumnDef, der: &mut D) -> Result<Option<Self>>
-    where
-        D: Deserializer,
-    {
-        if let Some(rdbc::Value::Bytes(i)) = der.read_rdbc_value(col)? {
-            return Ok(Some(i));
-        }
+impl<T> DerefMut for OneToMany<T>
+where
+    T: TableRef,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
+}
 
-        Ok(None)
+/// ORM table join to field define, specially for many to many relationship
+pub struct ManyToMany<T>
+where
+    T: TableRef,
+{
+    pub data: Option<Vec<Arc<T>>>,
+}
+
+impl<T> Deref for ManyToMany<T>
+where
+    T: TableRef,
+{
+    type Target = Option<Vec<Arc<T>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<T> DerefMut for ManyToMany<T>
+where
+    T: TableRef,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
+}
+
+/// ORM table join to field define, specially for many to one relationship
+pub struct ManyToOne<T>
+where
+    T: TableRef,
+{
+    pub data: Option<Arc<T>>,
+}
+
+impl<T> Deref for ManyToOne<T>
+where
+    T: TableRef,
+{
+    type Target = Option<Arc<T>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<T> DerefMut for ManyToOne<T>
+where
+    T: TableRef,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
     }
 }

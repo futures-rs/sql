@@ -1,50 +1,45 @@
-pub struct ColumnDef {
-    pub ph: rdbc::Placeholder,
-    pub col_type: ColumnType,
-    pub description: Option<&'static str>,
+pub trait TableRef {
+    fn name() -> &'static str;
+    fn columns() -> Vec<&'static ColumnRef>;
+    fn indexes() -> Vec<&'static IndexRef>;
 }
 
-impl ColumnDef {
-    pub const fn new(
-        ph: rdbc::Placeholder,
-        col_type: ColumnType,
-        description: Option<&'static str>,
-    ) -> Self {
-        Self {
-            ph,
-            description,
-            col_type,
-        }
-    }
+/// ORM rdbc table column define structure
+pub struct ColumnRef {
+    pub name: &'static str,                 // col name
+    pub col_type: ColumnType,               // col type enum
+    pub col_decltype: Option<&'static str>, // col sql declare type string
 }
 
+/// ORM column types
 pub enum ColumnType {
-    RDBC(rdbc::ColumnType),
-    OneToOne(OneToOne),
-    OneToMany(OneToMany),
-    ManyToMany(ManyToMany),
+    RDBC(rdbc::ColumnType), // column basic type
+    OneToOne(JoinRef),      // one to one column orm type
+    OneToMany(JoinRef),     // one to many column orm type
+    ManyToMany(JoinRef),    // many to many column orm type
+    ManyToOne(JoinRef),     // to help generate optimized sql
 }
 
-pub struct OneToOne {
-    pub col_type: rdbc::ColumnType,
-    pub to: &'static str,        // reference table name
-    pub to_column: &'static str, // foreign key
+/// ORM join reference define structure
+pub struct JoinRef {
+    pub name: &'static str, // join statment unique name, to help generate join on multiple columns sql .
+    pub rdbc_type: rdbc::ColumnType, // rdbc column type .
+    pub join: &'static str, // join table name .
+    pub to: &'static str,   // join table column name .
 }
 
-pub struct OneToMany {}
-
-pub struct ManyToMany {}
-
-pub struct IndexDef {
-    pub name: &'static str,
-    pub idx_type: IndexType,
-    pub columns: &'static [&'static str],
+/// ORM table index define structure
+pub struct IndexRef {
+    pub name: &'static str, // table scope unique name, multiple columns index use this value to group
+    pub idx_type: IndexType, // index type
+    pub col_group: &'static [&'static str], // index includes columns
 }
 
-#[derive(Debug, PartialEq)]
+/// ORM table index type
 pub enum IndexType {
-    Index,
-    Unique,
-    Primary,
-    PrimaryAutoInc,
+    Index,          // normal index
+    Primary,        // table primary key
+    PrimaryAutoInc, // table auto increament primary key
+    Unique,         // unique index
+    Foreign,        // foreign key
 }
