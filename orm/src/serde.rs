@@ -2,6 +2,10 @@ use std::sync::Arc;
 
 use super::schema::*;
 
+pub trait Joinable {
+    fn schema() -> &'static TableRef;
+}
+
 /// ORM object serialize context structure
 pub trait Serializer {
     fn serialize_col(&mut self, col: &ColumnRef, value: rdbc::Value) -> anyhow::Result<()>;
@@ -12,7 +16,7 @@ pub trait Serializer {
         join: Vec<Arc<Join>>,
     ) -> anyhow::Result<()>
     where
-        Join: TableRef;
+        Join: Joinable + Serializable;
 }
 
 pub trait Deserializer {
@@ -23,7 +27,7 @@ pub trait Deserializer {
         col: &ColumnRef,
     ) -> anyhow::Result<Option<Vec<Arc<Join>>>>
     where
-        Join: TableRef;
+        Join: Joinable + Deserializable;
 }
 
 pub trait Serializable {

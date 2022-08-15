@@ -11,3 +11,7 @@ pub use schema::*;
 mod serde;
 
 pub use crate::serde::*;
+
+mod rdbc;
+
+pub use crate::rdbc::*;

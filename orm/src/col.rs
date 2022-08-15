@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{ColumnValue, Deserializable, Serializable, TableRef};
+use crate::{ColumnValue, Deserializable, Joinable, Serializable, TableRef};
 
 /// ORM table normal field
 pub struct Column<T>
@@ -68,14 +68,14 @@ where
 /// ORM table join to field define, specially for one to one relationship
 pub struct OneToOne<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     pub data: Option<Arc<T>>,
 }
 
 impl<T> Deref for OneToOne<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     type Target = Option<Arc<T>>;
 
@@ -86,7 +86,7 @@ where
 
 impl<T> DerefMut for OneToOne<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
@@ -95,7 +95,7 @@ where
 
 impl<T> Serializable for OneToOne<T>
 where
-    T: TableRef,
+    T: Joinable + Serializable,
 {
     fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
     where
@@ -111,7 +111,7 @@ where
 
 impl<T> Deserializable for OneToOne<T>
 where
-    T: TableRef,
+    T: Joinable + Deserializable,
 {
     fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where
@@ -132,14 +132,14 @@ where
 /// ORM table join to field define, specially for one to many relationship
 pub struct OneToMany<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     pub data: Option<Vec<Arc<T>>>,
 }
 
 impl<T> Deref for OneToMany<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     type Target = Option<Vec<Arc<T>>>;
 
@@ -150,7 +150,7 @@ where
 
 impl<T> DerefMut for OneToMany<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
@@ -159,7 +159,7 @@ where
 
 impl<T> Serializable for OneToMany<T>
 where
-    T: TableRef,
+    T: Joinable + Serializable,
 {
     fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
     where
@@ -175,7 +175,7 @@ where
 
 impl<T> Deserializable for OneToMany<T>
 where
-    T: TableRef,
+    T: Joinable + Deserializable,
 {
     fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where
@@ -190,14 +190,14 @@ where
 /// ORM table join to field define, specially for many to many relationship
 pub struct ManyToMany<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     pub data: Option<Vec<Arc<T>>>,
 }
 
 impl<T> Deref for ManyToMany<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     type Target = Option<Vec<Arc<T>>>;
 
@@ -208,7 +208,7 @@ where
 
 impl<T> DerefMut for ManyToMany<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
@@ -217,7 +217,7 @@ where
 
 impl<T> Serializable for ManyToMany<T>
 where
-    T: TableRef,
+    T: Joinable + Serializable,
 {
     fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
     where
@@ -233,7 +233,7 @@ where
 
 impl<T> Deserializable for ManyToMany<T>
 where
-    T: TableRef,
+    T: Joinable + Deserializable,
 {
     fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where
@@ -248,14 +248,14 @@ where
 /// ORM table join to field define, specially for many to one relationship
 pub struct ManyToOne<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     pub data: Option<Arc<T>>,
 }
 
 impl<T> Deref for ManyToOne<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     type Target = Option<Arc<T>>;
 
@@ -266,7 +266,7 @@ where
 
 impl<T> DerefMut for ManyToOne<T>
 where
-    T: TableRef,
+    T: Joinable,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
@@ -275,7 +275,7 @@ where
 
 impl<T> Serializable for ManyToOne<T>
 where
-    T: TableRef,
+    T: Joinable + Serializable,
 {
     fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
     where
@@ -291,7 +291,7 @@ where
 
 impl<T> Deserializable for ManyToOne<T>
 where
-    T: TableRef,
+    T: Joinable + Deserializable,
 {
     fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where

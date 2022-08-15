@@ -82,7 +82,7 @@ pub struct ColumnMetaData {
     pub column_decltype_len: Option<u64>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ColumnType {
     I64,
     F64,
