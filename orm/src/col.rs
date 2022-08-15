@@ -93,6 +93,42 @@ where
     }
 }
 
+impl<T> Serializable for OneToOne<T>
+where
+    T: TableRef,
+{
+    fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
+    where
+        S: crate::Serializer,
+    {
+        if self.is_some() {
+            return s.serialize_join_to(col, vec![self.data.as_ref().unwrap().clone()]);
+        } else {
+            return Ok(());
+        }
+    }
+}
+
+impl<T> Deserializable for OneToOne<T>
+where
+    T: TableRef,
+{
+    fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
+    where
+        D: crate::Deserializer,
+    {
+        let data = d.deserialize_join_to::<T>(col)?;
+
+        if data.is_none() {
+            return Ok(None);
+        }
+
+        let data = data.unwrap()[0].clone();
+
+        Ok(Some(OneToOne { data: Some(data) }))
+    }
+}
+
 /// ORM table join to field define, specially for one to many relationship
 pub struct OneToMany<T>
 where
@@ -118,6 +154,36 @@ where
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
+    }
+}
+
+impl<T> Serializable for OneToMany<T>
+where
+    T: TableRef,
+{
+    fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
+    where
+        S: crate::Serializer,
+    {
+        if self.is_some() {
+            return s.serialize_join_to(col, self.data.as_ref().unwrap().clone());
+        } else {
+            return Ok(());
+        }
+    }
+}
+
+impl<T> Deserializable for OneToMany<T>
+where
+    T: TableRef,
+{
+    fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
+    where
+        D: crate::Deserializer,
+    {
+        let data = d.deserialize_join_to::<T>(col)?;
+
+        Ok(Some(OneToMany { data }))
     }
 }
 
@@ -149,6 +215,36 @@ where
     }
 }
 
+impl<T> Serializable for ManyToMany<T>
+where
+    T: TableRef,
+{
+    fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
+    where
+        S: crate::Serializer,
+    {
+        if self.is_some() {
+            return s.serialize_join_to(col, self.data.as_ref().unwrap().clone());
+        } else {
+            return Ok(());
+        }
+    }
+}
+
+impl<T> Deserializable for ManyToMany<T>
+where
+    T: TableRef,
+{
+    fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
+    where
+        D: crate::Deserializer,
+    {
+        let data = d.deserialize_join_to::<T>(col)?;
+
+        Ok(Some(ManyToMany { data }))
+    }
+}
+
 /// ORM table join to field define, specially for many to one relationship
 pub struct ManyToOne<T>
 where
@@ -174,5 +270,41 @@ where
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
+    }
+}
+
+impl<T> Serializable for ManyToOne<T>
+where
+    T: TableRef,
+{
+    fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
+    where
+        S: crate::Serializer,
+    {
+        if self.is_some() {
+            return s.serialize_join_to(col, vec![self.data.as_ref().unwrap().clone()]);
+        } else {
+            return Ok(());
+        }
+    }
+}
+
+impl<T> Deserializable for ManyToOne<T>
+where
+    T: TableRef,
+{
+    fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
+    where
+        D: crate::Deserializer,
+    {
+        let data = d.deserialize_join_to::<T>(col)?;
+
+        if data.is_none() {
+            return Ok(None);
+        }
+
+        let data = data.unwrap()[0].clone();
+
+        Ok(Some(ManyToOne { data: Some(data) }))
     }
 }

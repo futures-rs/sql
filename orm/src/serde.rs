@@ -1,10 +1,16 @@
+use std::sync::Arc;
+
 use super::schema::*;
 
 /// ORM object serialize context structure
 pub trait Serializer {
     fn serialize_col(&mut self, col: &ColumnRef, value: rdbc::Value) -> anyhow::Result<()>;
 
-    fn serialize_join_to<Join>(&mut self, col: &ColumnRef, join: Vec<&Join>) -> anyhow::Result<()>
+    fn serialize_join_to<Join>(
+        &mut self,
+        col: &ColumnRef,
+        join: Vec<Arc<Join>>,
+    ) -> anyhow::Result<()>
     where
         Join: TableRef;
 }
@@ -12,7 +18,10 @@ pub trait Serializer {
 pub trait Deserializer {
     fn deserialize_col(&mut self, col: &ColumnRef) -> anyhow::Result<Option<rdbc::Value>>;
 
-    fn deserialize_join_to<Join>(&mut self, col: &ColumnRef) -> anyhow::Result<Option<Vec<Join>>>
+    fn deserialize_join_to<Join>(
+        &mut self,
+        col: &ColumnRef,
+    ) -> anyhow::Result<Option<Vec<Arc<Join>>>>
     where
         Join: TableRef;
 }
