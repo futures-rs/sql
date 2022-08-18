@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{ColumnValue, Deserializable, Joinable, Serializable, TableRef};
+use crate::{ColumnValue, Deserializable, Joinable, Serializable};
 
 /// ORM table normal field
 pub struct Column<T>

@@ -1,15 +1,24 @@
-use crate::{Joinable, Serializable, Serializer, TableRef};
+use crate::{Joinable, Serializable, Serializer};
 
-pub struct RdbcSerializer {}
+pub struct RdbcSerializer {
+    cols: Vec<rdbc::Arg>,
+}
 
 impl RdbcSerializer {
-    pub fn new(metadata: &'static TableRef) -> Self {
-        RdbcSerializer {}
+    pub fn new() -> Self {
+        RdbcSerializer {
+            cols: Default::default(),
+        }
     }
 }
 
 impl Serializer for RdbcSerializer {
     fn serialize_col(&mut self, col: &crate::ColumnRef, value: rdbc::Value) -> anyhow::Result<()> {
+        self.cols.push(rdbc::Arg {
+            pos: rdbc::Placeholder::Name(col.name.to_owned()),
+            value,
+        });
+
         Ok(())
     }
 
