@@ -2,8 +2,13 @@ use std::sync::Arc;
 
 use super::schema::*;
 
-pub trait Joinable {
+pub trait Entity {
     fn schema() -> &'static TableRef;
+}
+
+/// Normal column field trait
+pub trait ColumnValue {
+    fn rdbc_type() -> rdbc::ColumnType;
 }
 
 /// ORM object serialize context structure
@@ -16,7 +21,7 @@ pub trait Serializer {
         join: Vec<Arc<Join>>,
     ) -> anyhow::Result<()>
     where
-        Join: Joinable + Serializable;
+        Join: Entity + Serializable;
 }
 
 pub trait Deserializer {
@@ -27,7 +32,7 @@ pub trait Deserializer {
         col: &ColumnRef,
     ) -> anyhow::Result<Option<Vec<Arc<Join>>>>
     where
-        Join: Joinable + Deserializable;
+        Join: Entity + Deserializable;
 }
 
 pub trait Serializable {
@@ -40,11 +45,6 @@ pub trait Deserializable: Sized {
     fn dserialize<D>(col: &ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where
         D: Deserializer;
-}
-
-/// Normal column field trait
-pub trait ColumnValue {
-    fn rdbc_type() -> rdbc::ColumnType;
 }
 
 macro_rules! declare_col_int_type {

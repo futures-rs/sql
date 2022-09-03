@@ -2,6 +2,7 @@
 pub struct TableRef {
     pub name: &'static str,
     pub columns: Vec<&'static ColumnRef>,
+    pub primary_col: Option<&'static str>,
     pub indexes: Vec<&'static IndexRef>,
 }
 
