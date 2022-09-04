@@ -21,3 +21,6 @@ criterion = {version = "0.3", features = ["async_futures", "html_reports"]}
 dotenv = "0.15.0"
 pretty_env_logger = "0.4.0"
 serde_bytes = "0.11.6"
+
+[features]
+runtime_check = []

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone)]
 pub struct TableRef {
     pub name: &'static str,
@@ -12,6 +14,16 @@ pub struct ColumnRef {
     pub name: &'static str,                 // col name
     pub col_type: ColumnType,               // col type enum
     pub col_decltype: Option<&'static str>, // col sql declare type string
+}
+
+impl Display for ColumnRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "col({}) type({:?}) decltype({:?})",
+            self.name, self.col_type, self.col_decltype
+        )
+    }
 }
 
 #[derive(Debug, Clone)]

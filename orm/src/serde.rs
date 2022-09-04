@@ -21,7 +21,7 @@ pub trait Serializer {
         join: Vec<Arc<Join>>,
     ) -> anyhow::Result<()>
     where
-        Join: Entity + Serializable;
+        Join: Entity + Serializable + 'static;
 }
 
 pub trait Deserializer {
@@ -32,7 +32,7 @@ pub trait Deserializer {
         col: &ColumnRef,
     ) -> anyhow::Result<Option<Vec<Arc<Join>>>>
     where
-        Join: Entity + Deserializable;
+        Join: Entity + Deserializable + 'static;
 }
 
 pub trait Serializable {

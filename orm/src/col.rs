@@ -95,7 +95,7 @@ where
 
 impl<T> Serializable for OneToOne<T>
 where
-    T: Entity + Serializable,
+    T: Entity + Serializable + 'static,
 {
     fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
     where
@@ -111,7 +111,7 @@ where
 
 impl<T> Deserializable for OneToOne<T>
 where
-    T: Entity + Deserializable,
+    T: Entity + Deserializable + 'static,
 {
     fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where
@@ -159,7 +159,7 @@ where
 
 impl<T> Serializable for OneToMany<T>
 where
-    T: Entity + Serializable,
+    T: Entity + Serializable + 'static,
 {
     fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
     where
@@ -175,7 +175,7 @@ where
 
 impl<T> Deserializable for OneToMany<T>
 where
-    T: Entity + Deserializable,
+    T: Entity + Deserializable + 'static,
 {
     fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where
@@ -217,7 +217,7 @@ where
 
 impl<T> Serializable for ManyToMany<T>
 where
-    T: Entity + Serializable,
+    T: Entity + Serializable + 'static,
 {
     fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
     where
@@ -233,7 +233,7 @@ where
 
 impl<T> Deserializable for ManyToMany<T>
 where
-    T: Entity + Deserializable,
+    T: Entity + Deserializable + 'static,
 {
     fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where
@@ -275,7 +275,7 @@ where
 
 impl<T> Serializable for ManyToOne<T>
 where
-    T: Entity + Serializable,
+    T: Entity + Serializable + 'static,
 {
     fn serialize<S>(&self, col: &crate::ColumnRef, s: &mut S) -> anyhow::Result<()>
     where
@@ -291,7 +291,7 @@ where
 
 impl<T> Deserializable for ManyToOne<T>
 where
-    T: Entity + Deserializable,
+    T: Entity + Deserializable + 'static,
 {
     fn dserialize<D>(col: &crate::ColumnRef, d: &mut D) -> anyhow::Result<Option<Self>>
     where
