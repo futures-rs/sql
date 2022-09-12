@@ -11,17 +11,14 @@ pub struct AsyncDriver {
 }
 
 fn fetch_object<'a, Obj, Output>(
-    waker: &rdbc::SharedWaker<anyhow::Result<Output>>,
+    waker: &rdbc::futures_signal::Sender<anyhow::Result<Output>>,
     map: &'a mut HashMap<String, Obj>,
     id: &str,
 ) -> Option<&'a mut Obj> {
     let obj = map.get_mut(id);
 
     if obj.is_none() {
-        waker
-            .lock()
-            .unwrap()
-            .ready(Err(anyhow::anyhow!("sqlite3 resource not found {}", id)));
+        waker.ready(Err(anyhow::anyhow!("sqlite3 resource not found {}", id)));
     }
 
     obj
@@ -50,8 +47,8 @@ impl AsyncDriver {
         loop {
             match receiver.recv()? {
                 driver::Task::Begin(id, waker) => {
-                    if let Some(conn) = fetch_object(&waker, &mut cnns, &id) {
-                        waker.lock().unwrap().ready(conn.begin().map(|tx| {
+                    if let Some(conn) = fetch_object(&waker.clone(), &mut cnns, &id) {
+                        waker.ready(conn.begin().map(|tx| {
                             {
                                 let id = tx.id.clone();
 
@@ -72,8 +69,8 @@ impl AsyncDriver {
                 }
 
                 driver::Task::Prepare(id, query, waker) => {
-                    if let Some(conn) = fetch_object(&waker, &mut cnns, &id) {
-                        waker.lock().unwrap().ready(conn.prepare(&query).map(|obj| {
+                    if let Some(conn) = fetch_object(&waker.clone(), &mut cnns, &id) {
+                        waker.ready(conn.prepare(&query).map(|obj| {
                             {
                                 let id = obj.id.clone();
 
@@ -98,26 +95,26 @@ impl AsyncDriver {
 
                         cnns.insert(id.clone(), conn);
 
-                        waker.lock().unwrap().ready(Ok(AsyncConnection {
+                        waker.ready(Ok(AsyncConnection {
                             id,
                             sender: sender.clone(),
                         }
                         .into()));
                     }
                     Err(err) => {
-                        waker.lock().unwrap().ready(Err(err));
+                        waker.ready(Err(err));
                     }
                 },
 
                 driver::Task::Execute(id, args, waker) => {
-                    if let Some(stmt) = fetch_object(&waker, &mut stmts, &id) {
-                        waker.lock().unwrap().ready(stmt.execute(args));
+                    if let Some(stmt) = fetch_object(&waker.clone(), &mut stmts, &id) {
+                        waker.ready(stmt.execute(args));
                     }
                 }
 
                 driver::Task::Query(id, args, waker) => {
-                    if let Some(stmt) = fetch_object(&waker, &mut stmts, &id) {
-                        waker.lock().unwrap().ready(stmt.query(args).map(|obj| {
+                    if let Some(stmt) = fetch_object(&waker.clone(), &mut stmts, &id) {
+                        waker.ready(stmt.query(args).map(|obj| {
                             {
                                 let id = obj.id.clone();
 
@@ -134,29 +131,26 @@ impl AsyncDriver {
                 }
 
                 driver::Task::Columns(id, waker) => {
-                    if let Some(rows) = fetch_object(&waker, &mut results, &id) {
-                        waker
-                            .lock()
-                            .unwrap()
-                            .ready(rows.colunms().map(|c| c.clone()));
+                    if let Some(rows) = fetch_object(&waker.clone(), &mut results, &id) {
+                        waker.ready(rows.colunms().map(|c| c.clone()));
                     }
                 }
 
                 driver::Task::RowsNext(id, waker) => {
-                    if let Some(rows) = fetch_object(&waker, &mut results, &id) {
-                        waker.lock().unwrap().ready(rows.next());
+                    if let Some(rows) = fetch_object(&waker.clone(), &mut results, &id) {
+                        waker.ready(rows.next());
                     }
                 }
 
                 driver::Task::RowsGet(id, pos, col_type, waker) => {
-                    if let Some(rows) = fetch_object(&waker, &mut results, &id) {
-                        waker.lock().unwrap().ready(rows.get(pos, col_type));
+                    if let Some(rows) = fetch_object(&waker.clone(), &mut results, &id) {
+                        waker.ready(rows.get(pos, col_type));
                     }
                 }
 
                 driver::Task::TxPrepare(id, query, waker) => {
-                    if let Some(tx) = fetch_object(&waker, &mut txs, &id) {
-                        waker.lock().unwrap().ready(tx.prepare(&query).map(|obj| {
+                    if let Some(tx) = fetch_object(&waker.clone(), &mut txs, &id) {
+                        waker.ready(tx.prepare(&query).map(|obj| {
                             {
                                 let id = obj.id.clone();
 
@@ -176,14 +170,14 @@ impl AsyncDriver {
                 }
 
                 driver::Task::Commit(id, waker) => {
-                    if let Some(tx) = fetch_object(&waker, &mut txs, &id) {
-                        waker.lock().unwrap().ready(tx.commit());
+                    if let Some(tx) = fetch_object(&waker.clone(), &mut txs, &id) {
+                        waker.ready(tx.commit());
                     }
                 }
 
                 driver::Task::Rollback(id, waker) => {
-                    if let Some(tx) = fetch_object(&waker, &mut txs, &id) {
-                        waker.lock().unwrap().ready(tx.rollback());
+                    if let Some(tx) = fetch_object(&waker.clone(), &mut txs, &id) {
+                        waker.ready(tx.rollback());
                     }
                 }
 
@@ -205,17 +199,17 @@ impl AsyncDriver {
 
 fn send_task<Output>(
     sender: &mut Sender<driver::Task>,
-    waker: rdbc::SharedWaker<anyhow::Result<Output>>,
+    waker: rdbc::futures_signal::Sender<anyhow::Result<Output>>,
     task: driver::Task,
 ) {
     if let Err(err) = sender.send(task) {
-        waker.lock().unwrap().ready(Err(anyhow::Error::new(err)));
+        waker.ready(Err(anyhow::Error::new(err)));
     }
 }
 
 impl driver::Driver for AsyncDriver {
     fn open(&mut self, name: &str) -> driver::Connector {
-        let (fut, waker) = driver::Connector::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -248,7 +242,7 @@ impl Drop for AsyncConnection {
 
 impl driver::Connection for AsyncConnection {
     fn begin(&mut self) -> driver::Begin {
-        let (fut, waker) = driver::Begin::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -268,7 +262,7 @@ impl driver::Connection for AsyncConnection {
     }
 
     fn prepare(&mut self, query: &str) -> driver::Prepare {
-        let (fut, waker) = driver::Prepare::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -299,7 +293,7 @@ impl Into<Box<dyn driver::Transaction>> for AsyncTransaction {
 
 impl driver::Transaction for AsyncTransaction {
     fn commit(&mut self) -> driver::Commit {
-        let (fut, waker) = driver::Commit::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -311,7 +305,7 @@ impl driver::Transaction for AsyncTransaction {
     }
 
     fn prepare(&mut self, query: &str) -> driver::Prepare {
-        let (fut, waker) = driver::Prepare::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -323,7 +317,7 @@ impl driver::Transaction for AsyncTransaction {
     }
 
     fn rollback(&mut self) -> driver::Rollback {
-        let (fut, waker) = driver::Rollback::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -357,7 +351,7 @@ impl Into<Box<dyn driver::Statement>> for AsyncStatement {
 
 impl driver::Statement for AsyncStatement {
     fn execute(&mut self, args: Vec<rdbc::Arg>) -> driver::Execute {
-        let (fut, waker) = driver::Execute::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -373,7 +367,7 @@ impl driver::Statement for AsyncStatement {
     }
 
     fn query(&mut self, args: Vec<rdbc::Arg>) -> driver::Query {
-        let (fut, waker) = driver::Query::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -406,7 +400,7 @@ unsafe impl Send for AsyncRows {}
 
 impl driver::Rows for AsyncRows {
     fn colunms(&mut self) -> driver::Columns {
-        let (fut, waker) = driver::Columns::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -422,7 +416,7 @@ impl driver::Rows for AsyncRows {
         pos: driver::Placeholder,
         column_type: driver::ColumnType,
     ) -> driver::RowsGet {
-        let (fut, waker) = driver::RowsGet::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,
@@ -434,7 +428,7 @@ impl driver::Rows for AsyncRows {
     }
 
     fn next(&mut self) -> driver::RowsNext {
-        let (fut, waker) = driver::RowsNext::new();
+        let (fut, waker) = rdbc::futures_signal::cond();
 
         send_task(
             &mut self.sender,

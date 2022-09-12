@@ -1,9 +1,11 @@
 use super::Prepare;
-use crate::waker;
+
 use anyhow::*;
 
-pub type Rollback = waker::WakableFuture<Result<()>>;
-pub type Commit = waker::WakableFuture<Result<()>>;
+use futures_signal::Signal;
+
+pub type Rollback = Signal<Result<()>>;
+pub type Commit = Signal<Result<()>>;
 
 /// Driver transaction trait .
 ///

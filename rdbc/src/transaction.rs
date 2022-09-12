@@ -1,6 +1,10 @@
+use crate::Preparable;
+
 use super::driver;
 use super::statement::*;
 use anyhow::*;
+use futures::TryFutureExt;
+use futures_any::prelude::AnyFutureEx;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -51,5 +55,19 @@ impl Drop for Transaction {
                 .unwrap()
                 .insert(conn.id().to_owned(), conn);
         }
+    }
+}
+
+impl Preparable for Transaction {
+    fn prepare(
+        &mut self,
+        query: &str,
+    ) -> futures_any::prelude::AnyFuture<anyhow::Result<Statement>> {
+        let connection_pool = self.connection_pool.clone();
+
+        self.inner
+            .prepare(query)
+            .map_ok(|statement| Statement::new(connection_pool, None, statement))
+            .to_any_future()
     }
 }

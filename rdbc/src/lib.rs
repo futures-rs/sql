@@ -1,19 +1,22 @@
 mod database;
 mod datasource;
 pub mod driver;
+mod prepare;
 mod rows;
 mod statement;
 mod transaction;
-mod waker;
 
 pub use database::*;
 pub use datasource::*;
+pub use prepare::*;
 pub use rows::*;
 pub use statement::*;
 pub use transaction::*;
-pub use waker::*;
 
 pub use driver::{Arg, ColumnMetaData, ColumnType, ExecuteResult, Placeholder, Value};
+
+pub use futures_any;
+pub use futures_signal;
 
 #[cfg(feature = "global-datasource")]
 mod global {

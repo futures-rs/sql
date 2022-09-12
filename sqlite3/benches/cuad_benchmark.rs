@@ -12,7 +12,7 @@ use std::{
 
 use rdbc_sqlite3::*;
 
-use rdbc::{Placeholder, Value};
+use rdbc::{Placeholder, Preparable, Value};
 
 #[allow(dead_code)]
 async fn prepare_benchmark() -> rdbc::Database {

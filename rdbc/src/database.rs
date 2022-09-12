@@ -3,10 +3,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use crate::{driver::Connection, statement, Preparable};
+
 use super::driver;
 use super::statement::*;
 use super::transaction::*;
-use anyhow::*;
+use anyhow::Result;
+use futures::{FutureExt, TryFutureExt};
+use futures_any::prelude::AnyFutureEx;
 
 #[derive(Clone)]
 pub struct Database {
@@ -70,19 +74,6 @@ impl Database {
         Ok(connection.unwrap())
     }
 
-    /// Prepare creates a prepared statement for later queries or executions.
-    pub async fn prepare(&mut self, query: &str) -> Result<Statement> {
-        let mut connection = self.select_one_connection().await?;
-
-        let statement = connection.prepare(query).await?;
-
-        Ok(Statement::new(
-            self.connection_pool.clone(),
-            Some(connection),
-            statement,
-        ))
-    }
-
     /// Starts and returns a new transaction.
     pub async fn begin(&mut self) -> Result<Transaction> {
         let mut connection = self.select_one_connection().await?;
@@ -94,5 +85,25 @@ impl Database {
             Some(connection),
             tx,
         ))
+    }
+}
+
+impl Preparable for Database {
+    fn prepare(
+        &mut self,
+        query: &str,
+    ) -> futures_any::prelude::AnyFuture<anyhow::Result<Statement>> {
+        let connection_pool = self.connection_pool.clone();
+
+        self.select_one_connection()
+            .and_then(|mut conn| async {
+                let stmt = conn.prepare(query).await?;
+
+                Ok((stmt, conn))
+            })
+            .map_ok(|(statement, connection)| {
+                Statement::new(connection_pool, Some(connection), statement)
+            })
+            .to_any_future()
     }
 }

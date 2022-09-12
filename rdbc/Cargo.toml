@@ -8,6 +8,8 @@ version = "0.1.0"
 [dependencies]
 anyhow = "~1.0"
 futures = {version = "0.3.21"}
+futures-any = {git = "https://github.com/futures-rs/any.git"}
+futures-signal = {git = "https://github.com/futures-rs/signal.git"}
 log = "0.4.16"
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"

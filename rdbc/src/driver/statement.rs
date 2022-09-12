@@ -1,11 +1,11 @@
-use crate::waker;
 use anyhow::*;
+use futures_signal::Signal;
 
-pub type Execute = waker::WakableFuture<Result<ExecuteResult>>;
-pub type Query = waker::WakableFuture<Result<Box<dyn Rows>>>;
-pub type Columns = waker::WakableFuture<Result<Vec<ColumnMetaData>>>;
-pub type RowsNext = waker::WakableFuture<Result<bool>>;
-pub type RowsGet = waker::WakableFuture<Result<Value>>;
+pub type Execute = Signal<Result<ExecuteResult>>;
+pub type Query = Signal<Result<Box<dyn Rows>>>;
+pub type Columns = Signal<Result<Vec<ColumnMetaData>>>;
+pub type RowsNext = Signal<Result<bool>>;
+pub type RowsGet = Signal<Result<Value>>;
 
 pub trait Statement: Send {
     /// Returns the number of placeholder parameters.

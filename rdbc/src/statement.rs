@@ -6,8 +6,8 @@ use std::{
 use super::driver;
 use super::driver::Arg;
 use super::rows::*;
-use super::waker;
-use anyhow::Result;
+use futures::TryFutureExt;
+use futures_any::prelude::AnyFutureEx;
 
 /// The [`driver::Statement`] wrapper
 pub struct Statement {
@@ -46,11 +46,11 @@ impl Statement {
     pub fn query(
         &mut self,
         args: Vec<Arg>,
-    ) -> waker::WakableMapFuture<Result<Rows>, Result<Box<dyn driver::Rows>>> {
-        self.statement.query(args).map(|r| match r {
-            Ok(rows) => Ok(Rows::new(rows)),
-            Err(err) => Err(err),
-        })
+    ) -> futures_any::future::AnyFuture<anyhow::Result<Rows>> {
+        self.statement
+            .query(args)
+            .map_ok(|rows| Rows::new(rows))
+            .to_any_future()
     }
 }
 

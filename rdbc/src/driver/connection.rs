@@ -1,10 +1,10 @@
 use super::Statement;
 use super::Transaction;
-use crate::waker;
 use anyhow::*;
+use futures_signal::Signal;
 
-pub type Prepare = waker::WakableFuture<Result<Box<dyn Statement>>>;
-pub type Begin = waker::WakableFuture<Result<Box<dyn Transaction>>>;
+pub type Prepare = Signal<Result<Box<dyn Statement>>>;
+pub type Begin = Signal<Result<Box<dyn Transaction>>>;
 
 pub trait Connection: Send {
     /// Returns a prepared statement, bound to this connection.
