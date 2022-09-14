@@ -1,7 +1,3 @@
-use rdbc::Preparable;
-
-use crate::Table;
-
 #[allow(dead_code)]
 /// Data insert builder
 pub struct CRUD<P> {
@@ -14,16 +10,4 @@ impl<P> CRUD<P> {
     }
 }
 
-impl<P> CRUD<P>
-where
-    P: Preparable,
-{
-    pub fn insert<T>(t: &T) -> anyhow::Result<()>
-    where
-        T: Table,
-    {
-        let table_ref = T::schema();
-
-        Ok(())
-    }
-}
+pub mod insert;
